@@ -45,6 +45,47 @@ Expected response:
 {"status":"ok"}
 ```
 
+### Authentication
+
+All endpoints except `/health` require an `X-API-Key` header. Set your API key in the `.env` file:
+
+```bash
+echo "API_KEY=your-secret-key-here" >> .env
+```
+
+Then make authenticated requests:
+
+```bash
+curl -H "X-API-Key: your-secret-key-here" http://localhost:8000/docs
+```
+
+### Error Responses
+
+All errors follow a uniform format:
+
+```json
+{
+  "error": {
+    "message": "Error message",
+    "status_code": 401
+  }
+}
+```
+
+Validation errors include additional details:
+
+```json
+{
+  "error": {
+    "message": "Validation error",
+    "status_code": 422,
+    "details": {
+      "field_name": "error message"
+    }
+  }
+}
+```
+
 ## Development
 
 ### Running Tests
@@ -66,6 +107,7 @@ Acme/
 ├── app/
 │   ├── main.py          # FastAPI application
 │   ├── auth.py          # Authentication module
+│   ├── common/          # Common utilities (errors, etc.)
 │   └── routers/         # API routers
 ├── tests/               # Test files
 └── requirements.txt     # Python dependencies
