@@ -28,4 +28,33 @@ jobs:
       
       - name: Run pytest
         run: pytest -q
+        env:
+          API_KEY: test-key-123
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        run: |
+          docker build -t acme-api:latest .
+      
+      - name: Test Docker image
+        run: |
+          docker run -d --name acme-test -p 8001:8000 \
+            -e API_KEY=test-key-123 \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            acme-api:latest
+          sleep 5
+          curl -f http://localhost:8001/health || exit 1
+          docker stop acme-test
+          docker rm acme-test
 
