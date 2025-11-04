@@ -6,6 +6,7 @@ from app.services.embeddings import get_embedding_service
 from app.services.language import detect_language
 from app.services.llm import get_llm_service
 from app.services.store import get_store_service
+from app.services.translate import get_translation_service
 from app.routers.retrieve import format_snippet
 
 router = APIRouter(prefix="/generate", tags=["generate"])
@@ -42,13 +43,12 @@ async def generate(request: GenerateRequest) -> GenerateResponse:
     if not request.query or not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
-    # Detect query language if output_language not provided
-    if request.output_language:
-        if request.output_language not in ["en", "ja"]:
-            raise HTTPException(status_code=400, detail="output_language must be 'en' or 'ja'")
-        target_language = request.output_language
-    else:
-        target_language = detect_language(request.query)
+    # Validate output_language if provided
+    if request.output_language and request.output_language not in ["en", "ja"]:
+        raise HTTPException(status_code=400, detail="output_language must be 'en' or 'ja'")
+    
+    # Always detect query language first
+    query_language = detect_language(request.query)
     
     # Retrieve relevant snippets (reuse retrieve logic)
     store = get_store_service()
@@ -57,11 +57,19 @@ async def generate(request: GenerateRequest) -> GenerateResponse:
     # Handle empty corpus gracefully
     if store.get_size() == 0:
         llm_service = get_llm_service()
-        answer = llm_service.compose_answer(request.query, [], language=target_language)
+        answer = llm_service.compose_answer(request.query, [], language=query_language)
+        
+        # Translate if output_language differs
+        final_language = query_language
+        if request.output_language and request.output_language != query_language:
+            translate_service = get_translation_service()
+            answer = translate_service.translate_answer(answer, request.output_language)
+            final_language = request.output_language
+        
         return GenerateResponse(
             answer=answer,
             citations=[],
-            language=target_language,
+            language=final_language,
             query=request.query,
         )
     
@@ -86,9 +94,16 @@ async def generate(request: GenerateRequest) -> GenerateResponse:
     results.sort(key=lambda x: (x["score"], x["doc_id"]))
     results = results[:request.k]
     
-    # Compose answer using mock LLM service
+    # Compose answer in query language (always)
     llm_service = get_llm_service()
-    answer = llm_service.compose_answer(request.query, results, language=target_language)
+    answer = llm_service.compose_answer(request.query, results, language=query_language)
+    
+    # Translate if output_language differs from query language
+    final_language = query_language
+    if request.output_language and request.output_language != query_language:
+        translate_service = get_translation_service()
+        answer = translate_service.translate_answer(answer, request.output_language)
+        final_language = request.output_language
     
     # Extract citations
     citations = llm_service.get_citations(results)
@@ -100,7 +115,7 @@ async def generate(request: GenerateRequest) -> GenerateResponse:
     return GenerateResponse(
         answer=answer,
         citations=citations,
-        language=target_language,
+        language=final_language,
         query=request.query,
     )
 

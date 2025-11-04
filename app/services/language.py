@@ -1,12 +1,18 @@
 """Language detection service."""
-import re
+import os
 from typing import Literal
+
+from dotenv import load_dotenv
+from openai import OpenAI
+
+# Load environment variables
+load_dotenv()
 
 Language = Literal["en", "ja"]
 
 
 def detect_language(text: str) -> Language:
-    """Detect if text is English or Japanese.
+    """Detect language using OpenAI API.
     
     Args:
         text: Text to analyze.
@@ -17,15 +23,31 @@ def detect_language(text: str) -> Language:
     if not text.strip():
         return "en"  # Default to English for empty text
     
-    # Check for Japanese characters (Hiragana, Katakana, Kanji)
-    japanese_pattern = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]')
-    japanese_chars = len(japanese_pattern.findall(text))
+    # Use OpenAI API to detect language
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is required")
     
-    # If significant portion of text contains Japanese characters, it's Japanese
-    # Threshold: if >10% of non-whitespace chars are Japanese, consider it JA
-    non_whitespace = len(re.sub(r'\s+', '', text))
-    if non_whitespace > 0 and japanese_chars / non_whitespace > 0.1:
-        return "ja"
+    client = OpenAI(api_key=api_key)
     
-    return "en"
-
+    prompt = f"Detect the language of this text. Respond with only 'en' for English or 'ja' for Japanese.\n\nText: {text[:200]}"
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=5,
+        )
+        
+        result = response.choices[0].message.content.strip().lower()
+        return "ja" if "ja" in result or "japanese" in result else "en"
+    except Exception:
+        # Fallback: basic regex check if API fails
+        import re
+        japanese_pattern = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]')
+        japanese_chars = len(japanese_pattern.findall(text))
+        non_whitespace = len(re.sub(r'\s+', '', text))
+        if non_whitespace > 0 and japanese_chars / non_whitespace > 0.1:
+            return "ja"
+        return "en"
