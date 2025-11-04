@@ -139,6 +139,36 @@ curl -X POST http://localhost:8000/retrieve \
 - Deterministic ordering on ties (by doc_id)
 - Empty corpus returns empty results (no error)
 
+### Generate Endpoint
+
+The `/generate` endpoint composes an answer from retrieved snippets with citations.
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/generate \
+  -H "X-API-Key: your-secret-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "software development", "k": 3, "output_language": "en"}'
+```
+
+**Response:**
+```json
+{
+  "answer": "Based on your query \"software development\", I found the following information:\n\n1. Software development guidelines... [Citation: doc_0]\n2. Programming best practices... [Citation: doc_1]\n\nI hope this information helps answer your question.",
+  "citations": ["doc_0", "doc_1"],
+  "language": "en",
+  "query": "software development"
+}
+```
+
+**Features:**
+- Composes deterministic mock answer from retrieved snippets
+- Includes ≥1 citation when results exist
+- Respects `output_language` parameter ('en' or 'ja')
+- Auto-detects query language if `output_language` not provided
+- Graceful message when corpus is empty
+- Supports custom `k` parameter for result count
+
 ### Error Responses
 
 All errors follow a uniform format:
@@ -190,8 +220,11 @@ Acme/
 │   ├── common/          # Common utilities (errors, etc.)
 │   ├── routers/         # API routers
 │   │   ├── ingest.py    # Ingest endpoint
-│   │   └── retrieve.py  # Retrieve endpoint
+│   │   ├── retrieve.py  # Retrieve endpoint
+│   │   └── generate.py  # Generate endpoint
 │   └── services/        # Service modules
+│       ├── llm.py       # Mock LLM composer
+│       └── translate.py # Translation service
 │       ├── language.py  # Language detection
 │       ├── embeddings.py # Embedding generation
 │       └── store.py     # FAISS storage
