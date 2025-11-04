@@ -6,10 +6,11 @@ A FastAPI-based application for text ingestion, retrieval, and generation.
 
 ### Prerequisites
 
-- Python 3.11+
-- pip
+- Python 3.11+ (for local development)
+- pip (for local development)
+- Docker (for containerized deployment)
 
-### Installation
+### Local Development
 
 1. Clone the repository:
 ```bash
@@ -27,9 +28,39 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-4. Run the application:
+4. Set your API keys in `.env`:
+```bash
+API_KEY=your-api-key-here
+OPENAI_API_KEY=your-openai-api-key-here
+```
+
+5. Run the application:
 ```bash
 uvicorn app.main:app --reload
+```
+
+The API will be available at `http://localhost:8000`
+
+### Docker Deployment
+
+1. Build the Docker image:
+```bash
+docker build -t acme-api:latest .
+```
+
+2. Run the container:
+```bash
+docker run -d \
+  --name acme-api \
+  -p 8000:8000 \
+  -e API_KEY=your-api-key-here \
+  -e OPENAI_API_KEY=your-openai-api-key-here \
+  acme-api:latest
+```
+
+3. Check the health endpoint:
+```bash
+curl http://localhost:8000/health
 ```
 
 The API will be available at `http://localhost:8000`
@@ -204,10 +235,36 @@ Validation errors include additional details:
 pytest -q
 ```
 
+Note: Tests require `OPENAI_API_KEY` to be set in the environment.
+
 ### Linting
 
 ```bash
 ruff .
+```
+
+### Docker Build
+
+To build and test the Docker image locally:
+
+```bash
+# Build the image
+docker build -t acme-api:latest .
+
+# Run the container
+docker run -d \
+  --name acme-api-test \
+  -p 8000:8000 \
+  -e API_KEY=test-key-123 \
+  -e OPENAI_API_KEY=your-openai-api-key \
+  acme-api:latest
+
+# Test the health endpoint
+curl http://localhost:8000/health
+
+# Stop and remove the container
+docker stop acme-api-test
+docker rm acme-api-test
 ```
 
 ## Project Structure
