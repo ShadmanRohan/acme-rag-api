@@ -99,6 +99,46 @@ The endpoint automatically:
 - Stores content in FAISS index
 - Deduplicates by content hash (idempotent)
 
+### Retrieve Endpoint
+
+The `/retrieve` endpoint searches for similar documents and returns top-k results.
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/retrieve \
+  -H "X-API-Key: your-secret-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "software development", "k": 3}'
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "doc_id": "doc_0",
+      "score": 0.123,
+      "snippet": "Software development guidelines. This document covers best practices for...",
+      "language": "en"
+    },
+    {
+      "doc_id": "doc_1",
+      "score": 0.456,
+      "snippet": "Programming languages and frameworks. Learn about popular technologies...",
+      "language": "en"
+    }
+  ]
+}
+```
+
+**Features:**
+- Default k=3 (customizable via `k` parameter)
+- Returns ≤k results
+- Snippets ≤160 characters, word-safe, no newlines
+- Scores are monotonic (r0 ≤ r1 ≤ r2, lower is better)
+- Deterministic ordering on ties (by doc_id)
+- Empty corpus returns empty results (no error)
+
 ### Error Responses
 
 All errors follow a uniform format:
@@ -149,7 +189,8 @@ Acme/
 │   ├── auth.py          # Authentication module
 │   ├── common/          # Common utilities (errors, etc.)
 │   ├── routers/         # API routers
-│   │   └── ingest.py    # Ingest endpoint
+│   │   ├── ingest.py    # Ingest endpoint
+│   │   └── retrieve.py  # Retrieve endpoint
 │   └── services/        # Service modules
 │       ├── language.py  # Language detection
 │       ├── embeddings.py # Embedding generation

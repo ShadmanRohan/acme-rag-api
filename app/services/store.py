@@ -120,13 +120,15 @@ class StoreService:
             k: Number of results to return.
             
         Returns:
-            List of results with doc_id, score, and metadata.
+            List of results with doc_id, score, and metadata, sorted by score (ascending, lower is better).
         """
         if self.index is None or len(self.metadata) == 0:
             return []
         
         query_array = query_embedding.reshape(1, -1)
-        distances, indices = self.index.search(query_array, min(k, len(self.metadata)))
+        # Search for more results than needed to handle ties
+        search_k = min(k * 2, len(self.metadata))
+        distances, indices = self.index.search(query_array, search_k)
         
         results = []
         for distance, idx in zip(distances[0], indices[0]):
@@ -141,7 +143,11 @@ class StoreService:
                 "content": meta["content"],
             })
         
-        return results
+        # Sort by score (ascending, lower distance is better) then by doc_id for deterministic ordering
+        results.sort(key=lambda x: (x["score"], x["doc_id"]))
+        
+        # Return top k results
+        return results[:k]
     
     def get_size(self) -> int:
         """Get the number of documents in the store."""
