@@ -1,0 +1,32 @@
+Software Development Guidelines
+
+1. Code Quality
+   - Write clean, readable code
+   - Follow consistent naming conventions
+   - Add comments for complex logic
+   - Keep functions small and focused
+
+2. Testing
+   - Write unit tests for all functions
+   - Aim for high test coverage
+   - Test edge cases and error conditions
+   - Run tests before committing code
+
+3. Documentation
+   - Document all public APIs
+   - Keep README files up to date
+   - Include examples in documentation
+   - Document architectural decisions
+
+4. Version Control
+   - Use meaningful commit messages
+   - Create feature branches for new work
+   - Review code before merging
+   - Keep main branch stable
+
+5. Security
+   - Never commit secrets or API keys
+   - Validate all user inputs
+   - Use parameterized queries for databases
+   - Keep dependencies updated
+
