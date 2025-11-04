@@ -3,6 +3,7 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
+from fastapi import HTTPException
 from openai import OpenAI
 
 # Load environment variables
@@ -15,9 +16,9 @@ class LLMService:
     def __init__(self):
         """Initialize the LLM service."""
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self.client = None
-        if self.api_key:
-            self.client = OpenAI(api_key=self.api_key)
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        self.client = OpenAI(api_key=self.api_key)
     
     def compose_answer(
         self,
@@ -34,15 +35,14 @@ class LLMService:
             
         Returns:
             Composed answer string with citations.
+            
+        Raises:
+            HTTPException: If OpenAI API call fails.
         """
         if not results:
             if language == "ja":
                 return "申し訳ございませんが、関連する情報が見つかりませんでした。"
             return "I'm sorry, but I couldn't find any relevant information."
-        
-        # If OpenAI API is not configured, fall back to mock
-        if not self.client:
-            return self._compose_mock_answer(query, results, language)
         
         try:
             # Build context from retrieved snippets
@@ -84,42 +84,11 @@ class LLMService:
             return answer
             
         except Exception as e:
-            # Fall back to mock if API call fails
-            print(f"OpenAI API error: {e}, falling back to mock answer")
-            return self._compose_mock_answer(query, results, language)
-    
-    def _compose_mock_answer(
-        self,
-        query: str,
-        results: list[dict[str, Any]],
-        language: str = "en",
-    ) -> str:
-        """Compose a deterministic mock answer (fallback).
-        
-        Args:
-            query: The user's query.
-            results: List of retrieved results with doc_id, snippet, score, language.
-            language: Target language for the answer ('en' or 'ja').
-            
-        Returns:
-            Composed answer string with citations.
-        """
-        if language == "ja":
-            answer_parts = [f"質問「{query}」について、以下の情報が見つかりました：\n\n"]
-            for i, result in enumerate(results, 1):
-                snippet = result.get("snippet", "")
-                doc_id = result.get("doc_id", "")
-                answer_parts.append(f"{i}. {snippet} [Citation: {doc_id}]\n")
-            answer_parts.append("\n上記の情報が質問の回答に役立つことを願っています。")
-        else:
-            answer_parts = [f"Based on your query \"{query}\", I found the following information:\n\n"]
-            for i, result in enumerate(results, 1):
-                snippet = result.get("snippet", "")
-                doc_id = result.get("doc_id", "")
-                answer_parts.append(f"{i}. {snippet} [Citation: {doc_id}]\n")
-            answer_parts.append("\nI hope this information helps answer your question.")
-        
-        return "".join(answer_parts)
+            # Raise HTTP exception if API call fails
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate answer using OpenAI API: {str(e)}"
+            )
     
     def get_citations(self, results: list[dict[str, Any]]) -> list[str]:
         """Extract citations from results.
@@ -138,7 +107,11 @@ _llm_service: LLMService | None = None
 
 
 def get_llm_service() -> LLMService:
-    """Get or create the global LLM service instance."""
+    """Get or create the global LLM service instance.
+    
+    Raises:
+        ValueError: If OPENAI_API_KEY is not configured.
+    """
     global _llm_service
     if _llm_service is None:
         _llm_service = LLMService()
