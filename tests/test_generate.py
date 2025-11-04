@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.embeddings import reset_embedding_service
+from app.services.llm import reset_llm_service
 from app.services.store import reset_store_service
 
 client = TestClient(app)
@@ -23,6 +24,7 @@ def cleanup_test_data():
     # Reset global service instances
     reset_embedding_service()
     reset_store_service()
+    reset_llm_service()
     # Clean up before test
     if TEST_DATA_DIR.exists():
         shutil.rmtree(TEST_DATA_DIR)
@@ -33,6 +35,7 @@ def cleanup_test_data():
     # Reset global service instances
     reset_embedding_service()
     reset_store_service()
+    reset_llm_service()
 
 
 def test_generate_empty_corpus(cleanup_test_data):
