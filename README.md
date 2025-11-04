@@ -59,6 +59,46 @@ Then make authenticated requests:
 curl -H "X-API-Key: your-secret-key-here" http://localhost:8000/docs
 ```
 
+### Ingest Endpoint
+
+The `/ingest` endpoint accepts text documents and stores them with embeddings for retrieval.
+
+**Supported formats:**
+1. Multipart file upload
+2. Base64 JSON body
+3. Base64 form field
+
+**Example - Multipart file upload:**
+```bash
+curl -X POST http://localhost:8000/ingest \
+  -H "X-API-Key: your-secret-key-here" \
+  -F "file=@document.txt"
+```
+
+**Example - Base64 JSON:**
+```bash
+curl -X POST http://localhost:8000/ingest \
+  -H "X-API-Key: your-secret-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "base64-encoded-content", "filename": "document.txt"}'
+```
+
+**Response:**
+```json
+{
+  "doc_id": "doc_0",
+  "language": "en",
+  "added": true,
+  "index_size": 1
+}
+```
+
+The endpoint automatically:
+- Detects language (English or Japanese)
+- Generates embeddings
+- Stores content in FAISS index
+- Deduplicates by content hash (idempotent)
+
 ### Error Responses
 
 All errors follow a uniform format:
@@ -108,7 +148,13 @@ Acme/
 │   ├── main.py          # FastAPI application
 │   ├── auth.py          # Authentication module
 │   ├── common/          # Common utilities (errors, etc.)
-│   └── routers/         # API routers
+│   ├── routers/         # API routers
+│   │   └── ingest.py    # Ingest endpoint
+│   └── services/        # Service modules
+│       ├── language.py  # Language detection
+│       ├── embeddings.py # Embedding generation
+│       └── store.py     # FAISS storage
+├── samples/             # Sample text files
 ├── tests/               # Test files
 └── requirements.txt     # Python dependencies
 ```
