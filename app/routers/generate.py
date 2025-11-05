@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.common.utils import format_snippet
+from app.config import DEFAULT_K, MAX_K, SNIPPET_MAX_LENGTH, SUPPORTED_LANGUAGES
 from app.services.embeddings import get_embedding_service
 from app.services.language import detect_language
 from app.services.llm import get_llm_service
@@ -15,10 +16,10 @@ router = APIRouter(prefix="/generate", tags=["generate"])
 class GenerateRequest(BaseModel):
     """Request model for generation."""
     query: str = Field(..., description="Query to generate answer for")
-    k: int = Field(default=3, ge=1, le=100, description="Number of results to retrieve (default: 3)")
+    k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K, description=f"Number of results to retrieve (default: {DEFAULT_K})")
     output_language: str | None = Field(
         default=None,
-        description="Target language for answer ('en' or 'ja'). If not provided, uses detected query language."
+        description=f"Target language for answer ({', '.join(SUPPORTED_LANGUAGES)}). If not provided, uses detected query language."
     )
 
 
@@ -44,8 +45,8 @@ async def generate(request: GenerateRequest) -> GenerateResponse:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
     # Validate output_language if provided
-    if request.output_language and request.output_language not in ["en", "ja"]:
-        raise HTTPException(status_code=400, detail="output_language must be 'en' or 'ja'")
+    if request.output_language and request.output_language not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=400, detail=f"output_language must be one of {SUPPORTED_LANGUAGES}")
     
     # Always detect query language first
     query_language = detect_language(request.query)
@@ -82,7 +83,7 @@ async def generate(request: GenerateRequest) -> GenerateResponse:
     # Format results with snippets
     results = []
     for result in search_results:
-        snippet = format_snippet(result["content"], max_length=160)
+        snippet = format_snippet(result["content"], max_length=SNIPPET_MAX_LENGTH)
         results.append({
             "doc_id": result["doc_id"],
             "snippet": snippet,

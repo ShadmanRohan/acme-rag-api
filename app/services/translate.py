@@ -1,9 +1,15 @@
 """Translation service."""
-import os
-
 from fastapi import HTTPException
 from openai import OpenAI
 
+from app.config import (
+    LANGUAGE_NAME_MAP,
+    OPENAI_API_KEY,
+    OPENAI_MAX_TOKENS_TRANSLATE,
+    OPENAI_MODEL,
+    OPENAI_TEMPERATURE_TRANSLATE,
+    TRANSLATION_PROMPT_TEMPLATE,
+)
 from app.services.language import Language, detect_language
 
 
@@ -12,7 +18,8 @@ class TranslationService:
     
     def __init__(self):
         """Initialize translation service with OpenAI client."""
-        api_key = os.getenv("OPENAI_API_KEY")
+        import os
+        api_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
         self.client = OpenAI(api_key=api_key)
@@ -31,20 +38,20 @@ class TranslationService:
         if source_language == target_language:
             return text
         
-        lang_map = {"en": "English", "ja": "Japanese"}
-        prompt = f"""Translate the following text from {lang_map[source_language]} to {lang_map[target_language]}.
-
-Important: Preserve all citation markers in the format [Citation: doc_id]. Do not translate citations.
-
-Text to translate:
-{text}"""
+        source_lang_name = LANGUAGE_NAME_MAP[source_language]
+        target_lang_name = LANGUAGE_NAME_MAP[target_language]
+        prompt = TRANSLATION_PROMPT_TEMPLATE.format(
+            source_language=source_lang_name,
+            target_language=target_lang_name,
+            text=text
+        )
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=OPENAI_MODEL,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=1000,
+                temperature=OPENAI_TEMPERATURE_TRANSLATE,
+                max_tokens=OPENAI_MAX_TOKENS_TRANSLATE,
             )
             
             return response.choices[0].message.content.strip()

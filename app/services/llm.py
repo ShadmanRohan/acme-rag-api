@@ -1,9 +1,23 @@
 """LLM service for composing answers using OpenAI API."""
-import os
 from typing import Any
 
 from fastapi import HTTPException
 from openai import OpenAI
+
+from app.config import (
+    CITATION_FINAL_FORMAT,
+    CITATION_TEMP_FORMAT,
+    EMPTY_RESULT_MESSAGE_EN,
+    EMPTY_RESULT_MESSAGE_JA,
+    LLM_SYSTEM_PROMPT_EN,
+    LLM_SYSTEM_PROMPT_JA,
+    LLM_USER_PROMPT_TEMPLATE_EN,
+    LLM_USER_PROMPT_TEMPLATE_JA,
+    OPENAI_API_KEY,
+    OPENAI_MAX_TOKENS_LLM,
+    OPENAI_MODEL,
+    OPENAI_TEMPERATURE_LLM,
+)
 
 
 class LLMService:
@@ -11,10 +25,11 @@ class LLMService:
     
     def __init__(self):
         """Initialize the LLM service."""
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
+        import os
+        api_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY
+        if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=api_key)
     
     def compose_answer(
         self,
@@ -37,8 +52,8 @@ class LLMService:
         """
         if not results:
             if language == "ja":
-                return "申し訳ございませんが、関連する情報が見つかりませんでした。"
-            return "I'm sorry, but I couldn't find any relevant information."
+                return EMPTY_RESULT_MESSAGE_JA
+            return EMPTY_RESULT_MESSAGE_EN
         
         try:
             # Build context from retrieved snippets
@@ -47,35 +62,37 @@ class LLMService:
             for i, result in enumerate(results, 1):
                 snippet = result.get("snippet", "")
                 doc_id = result.get("doc_id", "")
-                citations_map[f"[doc_{i}]"] = doc_id
-                context_parts.append(f"[doc_{i}] {snippet}")
+                temp_citation = CITATION_TEMP_FORMAT.format(index=i)
+                citations_map[temp_citation] = doc_id
+                context_parts.append(f"{temp_citation} {snippet}")
             
             context = "\n\n".join(context_parts)
             
             # Build prompt based on language
             if language == "ja":
-                system_prompt = "あなたは質問に答えるアシスタントです。提供されたコンテキスト情報を使用して、質問に正確に答えてください。各回答には[doc_N]形式の引用を含めてください。"
-                user_prompt = f"質問: {query}\n\nコンテキスト情報:\n{context}\n\n上記のコンテキスト情報を使用して質問に答えてください。"
+                system_prompt = LLM_SYSTEM_PROMPT_JA
+                user_prompt = LLM_USER_PROMPT_TEMPLATE_JA.format(query=query, context=context)
             else:
-                system_prompt = "You are a helpful assistant that answers questions using the provided context. Include citations in the format [doc_N] for each piece of information used."
-                user_prompt = f"Question: {query}\n\nContext information:\n{context}\n\nPlease answer the question using the context information above."
+                system_prompt = LLM_SYSTEM_PROMPT_EN
+                user_prompt = LLM_USER_PROMPT_TEMPLATE_EN.format(query=query, context=context)
             
             # Call OpenAI API
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # Using cost-effective model
+                model=OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.3,  # Lower temperature for more deterministic answers
-                max_tokens=1000,
+                temperature=OPENAI_TEMPERATURE_LLM,
+                max_tokens=OPENAI_MAX_TOKENS_LLM,
             )
             
             answer = response.choices[0].message.content.strip()
             
-            # Replace [doc_N] references with actual doc_ids
+            # Replace temporary citation references with final citation format
             for ref, doc_id in citations_map.items():
-                answer = answer.replace(ref, f"[Citation: {doc_id}]")
+                final_citation = CITATION_FINAL_FORMAT.format(doc_id=doc_id)
+                answer = answer.replace(ref, final_citation)
             
             return answer
             

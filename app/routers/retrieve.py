@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.common.utils import format_snippet
+from app.config import DEFAULT_K, MAX_K, SNIPPET_MAX_LENGTH
 from app.services.embeddings import get_embedding_service
 from app.services.store import get_store_service
 
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/retrieve", tags=["retrieve"])
 class RetrieveRequest(BaseModel):
     """Request model for retrieval."""
     query: str = Field(..., description="Search query")
-    k: int = Field(default=3, ge=1, le=100, description="Number of results to return (default: 3)")
+    k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K, description=f"Number of results to return (default: {DEFAULT_K})")
 
 
 class RetrieveResult(BaseModel):
@@ -58,7 +59,7 @@ async def retrieve(request: RetrieveRequest) -> RetrieveResponse:
     # Format results with snippets and deterministic ordering
     results = []
     for result in search_results:
-        snippet = format_snippet(result["content"], max_length=160)
+        snippet = format_snippet(result["content"], max_length=SNIPPET_MAX_LENGTH)
         results.append(
             RetrieveResult(
                 doc_id=result["doc_id"],

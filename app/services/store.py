@@ -1,18 +1,21 @@
 """FAISS store service."""
 import hashlib
 import pickle
-from pathlib import Path
 from typing import Any
 
 import faiss
 import numpy as np
 
+from app.config import (
+    DATA_DIR,
+    DEFAULT_K,
+    DOC_ID_PREFIX,
+    FAISS_INDEX_TYPE,
+    INDEX_FILE,
+    METADATA_FILE,
+    SEARCH_K_MULTIPLIER,
+)
 from app.services.embeddings import get_embedding_service
-
-# Storage paths
-DATA_DIR = Path("app/data")
-INDEX_FILE = DATA_DIR / "index.faiss"
-METADATA_FILE = DATA_DIR / "metadata.pkl"
 
 
 class StoreService:
@@ -90,14 +93,15 @@ class StoreService:
         
         # Initialize index if needed
         if self.index is None:
-            self.index = faiss.IndexFlatL2(self.dimension)
+            index_class = getattr(faiss, FAISS_INDEX_TYPE)
+            self.index = index_class(self.dimension)
         
         # Add embedding to index
         embedding_array = embedding.reshape(1, -1)
         self.index.add(embedding_array)
         
         # Create metadata
-        doc_id = f"doc_{len(self.metadata)}"
+        doc_id = f"{DOC_ID_PREFIX}{len(self.metadata)}"
         metadata_entry = {
             "doc_id": doc_id,
             "hash": content_hash,
@@ -115,7 +119,7 @@ class StoreService:
             "added": True,
         }
     
-    def search(self, query_embedding: np.ndarray, k: int = 3) -> list[dict[str, Any]]:
+    def search(self, query_embedding: np.ndarray, k: int = None) -> list[dict[str, Any]]:
         """Search for similar documents.
         
         Args:
@@ -125,12 +129,14 @@ class StoreService:
         Returns:
             List of results with doc_id, score, and metadata, sorted by score (ascending, lower is better).
         """
+        if k is None:
+            k = DEFAULT_K
         if self.index is None or len(self.metadata) == 0:
             return []
         
         query_array = query_embedding.reshape(1, -1)
         # Search for more results than needed to handle ties
-        search_k = min(k * 2, len(self.metadata))
+        search_k = min(k * SEARCH_K_MULTIPLIER, len(self.metadata))
         distances, indices = self.index.search(query_array, search_k)
         
         results = []

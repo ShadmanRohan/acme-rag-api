@@ -1,66 +1,51 @@
 # Acme API
 
-A FastAPI-based application for text ingestion, retrieval, and generation.
+A FastAPI application for ingesting text, searching documents, and generating answers with citations.
 
 ## Quick Start
 
-### Prerequisites
+### Setup
 
-- Python 3.11+ (for local development)
-- pip (for local development)
-- Docker (for containerized deployment)
-
-### Local Development
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd Acme
-```
-
-2. Install dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Copy and configure environment file:
+2. Set up your API key:
 ```bash
 cp .env.example .env
-# Edit .env and set your OPENAI_API_KEY
+# Add your OPENAI_API_KEY to .env
 ```
 
-4. Run the application:
+3. (Optional) Customize prompts and messages:
+```bash
+cp config.yml.example config.yml
+# Edit config.yml to tweak prompts, messages, etc.
+```
+
+4. Run it:
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
+Visit `http://localhost:8000/docs` to see the API docs.
 
-### Docker Deployment
+### Docker
 
-1. Build the Docker image:
+Build and run:
 ```bash
 docker build -t acme-api:latest .
-```
-
-2. Run the container:
-```bash
 docker run -d \
   --name acme-api \
   -p 8000:8000 \
-  -e OPENAI_API_KEY=your-openai-api-key-here \
+  -e OPENAI_API_KEY=your-key-here \
   -v $(pwd)/app/data:/app/app/data \
   acme-api:latest
 ```
 
-**Note:** The `-v $(pwd)/app/data:/app/app/data` volume mount ensures that embeddings and documents persist on the host machine even if the container is stopped or removed. Without this volume mount, all data will be lost when the container is removed.
+The volume mount keeps your data safe when the container stops.
 
-3. Check the health endpoint:
-```bash
-curl http://localhost:8000/health
-```
-
-The API will be available at `http://localhost:8000`
+## API Endpoints
 
 ### Health Check
 
@@ -68,41 +53,33 @@ The API will be available at `http://localhost:8000`
 curl http://localhost:8000/health
 ```
 
-Expected response:
-```json
-{"status":"ok"}
-```
+Returns `{"status":"ok"}` - no auth needed.
 
 ### Authentication
 
-All endpoints except `/health` require an `X-API-Key` header. Use your `OPENAI_API_KEY` value in the header:
+All endpoints except `/health` need an `X-API-Key` header with your `OPENAI_API_KEY`:
 
 ```bash
-curl -H "X-API-Key: your-openai-api-key" http://localhost:8000/docs
+curl -H "X-API-Key: your-key-here" http://localhost:8000/docs
 ```
 
-### Ingest Endpoint
+### Ingest Documents
 
-The `/ingest` endpoint accepts text documents and stores them with embeddings for retrieval.
+Upload text files (`.txt` only) to store them with embeddings:
 
-**Supported formats:**
-1. Multipart file upload
-2. Base64 JSON body
-3. Base64 form field
-
-**Example - Multipart file upload:**
 ```bash
+# Upload a file
 curl -X POST http://localhost:8000/ingest \
-  -H "X-API-Key: your-secret-key-here" \
+  -H "X-API-Key: your-key-here" \
   -F "file=@document.txt"
 ```
 
-**Example - Base64 JSON:**
+Or send base64-encoded content:
 ```bash
 curl -X POST http://localhost:8000/ingest \
-  -H "X-API-Key: your-secret-key-here" \
+  -H "X-API-Key: your-key-here" \
   -H "Content-Type: application/json" \
-  -d '{"content": "base64-encoded-content", "filename": "document.txt"}'
+  -d '{"content": "base64-encoded-text"}'
 ```
 
 **Response:**
@@ -117,18 +94,17 @@ curl -X POST http://localhost:8000/ingest \
 
 The endpoint automatically:
 - Detects language (English or Japanese)
-- Generates embeddings
-- Stores content in FAISS index
-- Deduplicates by content hash (idempotent)
+- Creates embeddings
+- Stores in FAISS index
+- Deduplicates by content hash
 
-### Retrieve Endpoint
+### Search Documents
 
-The `/retrieve` endpoint searches for similar documents and returns top-k results.
+Search for similar documents:
 
-**Request:**
 ```bash
 curl -X POST http://localhost:8000/retrieve \
-  -H "X-API-Key: your-secret-key-here" \
+  -H "X-API-Key: your-key-here" \
   -H "Content-Type: application/json" \
   -d '{"query": "software development", "k": 3}'
 ```
@@ -140,35 +116,25 @@ curl -X POST http://localhost:8000/retrieve \
     {
       "doc_id": "doc_0",
       "score": 0.123,
-      "snippet": "Software development guidelines. This document covers best practices for...",
-      "language": "en"
-    },
-    {
-      "doc_id": "doc_1",
-      "score": 0.456,
-      "snippet": "Programming languages and frameworks. Learn about popular technologies...",
+      "snippet": "Software development guidelines...",
       "language": "en"
     }
   ]
 }
 ```
 
-**Features:**
-- Default k=3 (customizable via `k` parameter)
-- Returns ≤k results
-- Snippets ≤160 characters, word-safe, no newlines
-- Scores are monotonic (r0 ≤ r1 ≤ r2, lower is better)
-- Deterministic ordering on ties (by doc_id)
+- Default `k=3` (change with `k` parameter)
+- Snippets are ≤160 chars, word-safe
+- Lower scores = better matches
 - Empty corpus returns empty results (no error)
 
-### Generate Endpoint
+### Generate Answers
 
-The `/generate` endpoint composes an answer from retrieved snippets with citations.
+Get an AI-generated answer with citations:
 
-**Request:**
 ```bash
 curl -X POST http://localhost:8000/generate \
-  -H "X-API-Key: your-secret-key-here" \
+  -H "X-API-Key: your-key-here" \
   -H "Content-Type: application/json" \
   -d '{"query": "software development", "k": 3, "output_language": "en"}'
 ```
@@ -176,24 +142,65 @@ curl -X POST http://localhost:8000/generate \
 **Response:**
 ```json
 {
-  "answer": "Based on your query \"software development\", I found the following information:\n\n1. Software development guidelines... [Citation: doc_0]\n2. Programming best practices... [Citation: doc_1]\n\nI hope this information helps answer your question.",
+  "answer": "Based on your query... [Citation: doc_0]",
   "citations": ["doc_0", "doc_1"],
   "language": "en",
   "query": "software development"
 }
 ```
 
-**Features:**
-- Composes deterministic mock answer from retrieved snippets
-- Includes ≥1 citation when results exist
-- Respects `output_language` parameter ('en' or 'ja')
-- Auto-detects query language if `output_language` not provided
-- Graceful message when corpus is empty
-- Supports custom `k` parameter for result count
+Features:
+- Auto-detects query language
+- Optional `output_language` for translation ('en' or 'ja')
+- Includes citations from retrieved docs
+- Works even with empty corpus
 
-### Error Responses
+## Configuration
 
-All errors follow a uniform format:
+We use a hybrid config approach:
+
+1. **Python config** (`app/config.py`) - Technical settings (model names, thresholds, paths)
+   - Override with environment variables
+   - Type-safe, IDE-friendly
+
+2. **YAML config** (`config.yml`) - User-friendly settings (prompts, messages)
+   - Easy to edit without Python knowledge
+   - Copy `config.yml.example` to get started
+
+**Priority:** Environment variables > YAML config > Python defaults
+
+If `config.yml` doesn't exist, it falls back to Python defaults - no worries!
+
+## Development
+
+Run tests:
+```bash
+pytest -q
+```
+
+Lint code:
+```bash
+ruff .
+```
+
+## Project Structure
+
+```
+Acme/
+├── app/
+│   ├── main.py          # FastAPI app
+│   ├── config.py        # Config (Python + YAML)
+│   ├── common/          # Utilities
+│   ├── routers/         # API endpoints
+│   └── services/        # Business logic
+├── config.yml           # YAML config (optional)
+├── tests/               # Tests
+└── requirements.txt     # Dependencies
+```
+
+## Error Format
+
+All errors follow the same format:
 
 ```json
 {
@@ -204,8 +211,7 @@ All errors follow a uniform format:
 }
 ```
 
-Validation errors include additional details:
-
+Validation errors include details:
 ```json
 {
   "error": {
@@ -217,71 +223,3 @@ Validation errors include additional details:
   }
 }
 ```
-
-## Development
-
-### Running Tests
-
-```bash
-pytest -q
-```
-
-Note: Tests require `OPENAI_API_KEY` to be set in the environment.
-
-### Linting
-
-```bash
-ruff .
-```
-
-### Docker Build
-
-To build and test the Docker image locally:
-
-```bash
-# Build the image
-docker build -t acme-api:latest .
-
-# Run the container (with volume mount for data persistence)
-docker run -d \
-  --name acme-api-test \
-  -p 8000:8000 \
-  -e OPENAI_API_KEY=your-openai-api-key \
-  -v $(pwd)/app/data:/app/app/data \
-  acme-api:latest
-
-# Test the health endpoint
-curl http://localhost:8000/health
-
-# Stop and remove the container
-docker stop acme-api-test
-docker rm acme-api-test
-```
-
-## Project Structure
-
-```
-Acme/
-├── app/
-│   ├── main.py          # FastAPI application
-│   ├── auth.py          # Authentication module
-│   ├── common/          # Common utilities (errors, etc.)
-│   ├── routers/         # API routers
-│   │   ├── ingest.py    # Ingest endpoint
-│   │   ├── retrieve.py  # Retrieve endpoint
-│   │   └── generate.py  # Generate endpoint
-│   └── services/        # Service modules
-│       ├── llm.py       # Mock LLM composer
-│       └── translate.py # Translation service
-│       ├── language.py  # Language detection
-│       ├── embeddings.py # Embedding generation
-│       └── store.py     # FAISS storage
-├── samples/             # Sample text files
-├── tests/               # Test files
-└── requirements.txt     # Python dependencies
-```
-
-## License
-
-[Add license information here]
-

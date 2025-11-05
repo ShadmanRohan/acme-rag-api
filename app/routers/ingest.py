@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
+from app.config import ALLOWED_FILE_EXTENSION
 from app.services.language import detect_language
 from app.services.store import get_store_service
 
@@ -62,8 +63,8 @@ async def ingest(
     
     # Handle multipart file upload
     if file is not None:
-        if file.filename and not file.filename.endswith(".txt"):
-            raise HTTPException(status_code=400, detail="Only .txt files are supported")
+        if file.filename and not file.filename.endswith(ALLOWED_FILE_EXTENSION):
+            raise HTTPException(status_code=400, detail=f"Only {ALLOWED_FILE_EXTENSION} files are supported")
         
         content_bytes = await file.read()
         text_content = content_bytes.decode("utf-8")

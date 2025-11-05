@@ -1,6 +1,8 @@
 """Embeddings service."""
 import numpy as np
 
+from app.config import EMBEDDING_DIMENSION, EMBEDDING_MODEL
+
 
 class EmbeddingService:
     """Service for generating text embeddings."""
@@ -9,7 +11,7 @@ class EmbeddingService:
         """Initialize the embedding model."""
         # Lazy load to avoid import issues
         self._model = None
-        self.dimension = 384  # Dimension for this model
+        self.dimension = EMBEDDING_DIMENSION
     
     @property
     def model(self):
@@ -18,7 +20,7 @@ class EmbeddingService:
             try:
                 from sentence_transformers import SentenceTransformer
                 # Use a multilingual model that supports both EN and JA
-                self._model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+                self._model = SentenceTransformer(EMBEDDING_MODEL)
             except Exception as e:
                 raise RuntimeError(f"Failed to load embedding model: {str(e)}") from e
         return self._model

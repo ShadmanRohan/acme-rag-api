@@ -1,0 +1,42 @@
+# Example configuration file
+# Copy this to config.yml and customize as needed
+# This file contains user-editable settings (prompts, messages, templates)
+
+# LLM prompts
+llm:
+  system_prompts:
+    en: "You are a helpful assistant that answers questions using the provided context. Include citations in the format [doc_N] for each piece of information used."
+    ja: "あなたは質問に答えるアシスタントです。提供されたコンテキスト情報を使用して、質問に正確に答えてください。各回答には[doc_N]形式の引用を含めてください。"
+  
+  user_prompt_templates:
+    en: "Question: {query}\n\nContext information:\n{context}\n\nPlease answer the question using the context information above."
+    ja: "質問: {query}\n\nコンテキスト情報:\n{context}\n\n上記のコンテキスト情報を使用して質問に答えてください。"
+
+# Empty result messages
+messages:
+  empty_result:
+    en: "I'm sorry, but I couldn't find any relevant information."
+    ja: "申し訳ございませんが、関連する情報が見つかりませんでした。"
+
+# Translation prompt template
+translation:
+  prompt_template: |
+    Translate the following text from {source_language} to {target_language}.
+
+    Important: Preserve all citation markers in the format [Citation: doc_id]. Do not translate citations.
+
+    Text to translate:
+    {text}
+
+# Language detection prompt template
+language_detection:
+  prompt_template: "Detect the language of this text. Respond with only 'en' for English or 'ja' for Japanese.\n\nText: {text}"
+
+# Language name mapping
+languages:
+  names:
+    en: "English"
+    ja: "Japanese"
+
+
+

@@ -1,18 +1,23 @@
 """Main FastAPI application."""
-import os
-
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.common.errors import UnauthorizedError, create_error_response
+from app.config import (
+    API_KEY_HEADER,
+    APP_NAME,
+    APP_VERSION,
+    HEALTH_CHECK_PATH,
+    OPENAI_API_KEY,
+)
 from app.routers import generate, ingest, retrieve
 
 # Load environment variables once at application startup
 load_dotenv()
 
-app = FastAPI(title="Acme API", version="0.1.0")
+app = FastAPI(title=APP_NAME, version=APP_VERSION)
 
 # Register routers
 app.include_router(ingest.router)
@@ -44,16 +49,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     """Apply authentication to all routes except /health."""
-    if request.url.path == "/health":
+    if request.url.path == HEALTH_CHECK_PATH:
         return await call_next(request)
     
-    # Check for X-API-Key header
-    api_key = request.headers.get("X-API-Key")
+    # Check for API key header
+    api_key = request.headers.get(API_KEY_HEADER)
     if not api_key:
-        return create_error_response(401, "Missing X-API-Key header")
+        return create_error_response(401, f"Missing {API_KEY_HEADER} header")
     
-    # Validate the API key
-    expected_key = os.getenv("OPENAI_API_KEY")
+    # Validate the API key (read from environment dynamically for tests)
+    import os
+    expected_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY
     if not expected_key:
         return create_error_response(500, "API key not configured on server")
     if api_key != expected_key:
@@ -62,7 +68,7 @@ async def auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-@app.get("/health")
+@app.get(HEALTH_CHECK_PATH)
 async def health():
     """Health check endpoint (no auth required)."""
     return {"status": "ok"}
