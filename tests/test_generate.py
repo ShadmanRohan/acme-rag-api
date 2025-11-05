@@ -2,6 +2,7 @@
 import os
 import shutil
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +16,17 @@ client = TestClient(app)
 
 # Clean up test data directory
 TEST_DATA_DIR = Path("app/data")
+
+
+def create_mock_openai_response(content: str):
+    """Create a mock OpenAI API response."""
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_message = MagicMock()
+    mock_message.content = content
+    mock_choice.message = mock_message
+    mock_response.choices = [mock_choice]
+    return mock_response
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +48,75 @@ def cleanup_test_data():
     reset_embedding_service()
     reset_store_service()
     reset_llm_service()
+
+
+@pytest.fixture(autouse=True)
+def mock_openai():
+    """Mock OpenAI API calls for all tests."""
+    with patch("app.services.llm.OpenAI") as mock_llm_client, \
+         patch("app.services.language.OpenAI") as mock_lang_client, \
+         patch("app.services.translate.OpenAI") as mock_translate_client:
+        
+        # Mock LLM service - return answers with citations (language-aware)
+        mock_llm_instance = MagicMock()
+        mock_llm_completion = MagicMock()
+        
+        def compose_answer(*args, **kwargs):
+            # Check if system prompt is in Japanese
+            messages = kwargs.get("messages", [])
+            is_japanese = False
+            for msg in messages:
+                if isinstance(msg, dict) and "content" in msg:
+                    content = msg["content"]
+                    if any(ord(char) >= 0x3040 and ord(char) <= 0x9FAF for char in str(content)):
+                        is_japanese = True
+                        break
+            
+            if is_japanese:
+                return create_mock_openai_response(
+                    "提供されたコンテキストに基づいて、ソフトウェア開発にはベストプラクティスと方法論が含まれます。 [Citation: doc_0]"
+                )
+            else:
+                return create_mock_openai_response(
+                    "Based on the provided context, software development involves best practices and methodologies. [Citation: doc_0]"
+                )
+        
+        mock_llm_completion.side_effect = compose_answer
+        mock_llm_instance.chat.completions.create = mock_llm_completion
+        mock_llm_client.return_value = mock_llm_instance
+        
+        # Mock Language service - detect language based on query
+        mock_lang_instance = MagicMock()
+        mock_lang_completion = MagicMock()
+        
+        def detect_language(*args, **kwargs):
+            # Check if Japanese characters in the prompt
+            messages = kwargs.get("messages", args[0] if args else [])
+            if messages:
+                # messages is a list of dicts with "role" and "content"
+                content = messages[0].get("content", "") if isinstance(messages[0], dict) else str(messages[0])
+                if any(ord(char) >= 0x3040 and ord(char) <= 0x9FAF for char in str(content)):
+                    return create_mock_openai_response("ja")
+            return create_mock_openai_response("en")
+        
+        mock_lang_completion.side_effect = detect_language
+        mock_lang_instance.chat.completions.create = mock_lang_completion
+        mock_lang_client.return_value = mock_lang_instance
+        
+        # Mock Translation service - return translated text
+        mock_translate_instance = MagicMock()
+        mock_translate_completion = MagicMock()
+        mock_translate_completion.return_value = create_mock_openai_response(
+            "ソフトウェア開発に関する回答です。"
+        )
+        mock_translate_instance.chat.completions.create = mock_translate_completion
+        mock_translate_client.return_value = mock_translate_instance
+        
+        yield {
+            "llm": mock_llm_completion,
+            "language": mock_lang_completion,
+            "translate": mock_translate_completion
+        }
 
 
 def test_generate_empty_corpus(cleanup_test_data):
