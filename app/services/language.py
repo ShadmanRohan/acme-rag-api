@@ -2,11 +2,7 @@
 import os
 from typing import Literal
 
-from dotenv import load_dotenv
 from openai import OpenAI
-
-# Load environment variables
-load_dotenv()
 
 Language = Literal["en", "ja"]
 

@@ -15,9 +15,12 @@ class EmbeddingService:
     def model(self):
         """Lazy load the model."""
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
-            # Use a multilingual model that supports both EN and JA
-            self._model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            try:
+                from sentence_transformers import SentenceTransformer
+                # Use a multilingual model that supports both EN and JA
+                self._model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            except Exception as e:
+                raise RuntimeError(f"Failed to load embedding model: {str(e)}") from e
         return self._model
     
     def embed(self, text: str) -> np.ndarray:
@@ -31,18 +34,6 @@ class EmbeddingService:
         """
         embedding = self.model.encode(text, convert_to_numpy=True)
         return embedding.astype(np.float32)
-    
-    def embed_batch(self, texts: list[str]) -> np.ndarray:
-        """Generate embeddings for multiple texts.
-        
-        Args:
-            texts: List of texts to embed.
-            
-        Returns:
-            Numpy array of embeddings (shape: [len(texts), dimension]).
-        """
-        embeddings = self.model.encode(texts, convert_to_numpy=True)
-        return embeddings.astype(np.float32)
     
     @property
     def embedding_dimension(self) -> int:

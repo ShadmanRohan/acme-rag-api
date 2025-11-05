@@ -1,14 +1,10 @@
 """Translation service."""
 import os
 
-from dotenv import load_dotenv
 from fastapi import HTTPException
 from openai import OpenAI
 
 from app.services.language import Language, detect_language
-
-# Load environment variables
-load_dotenv()
 
 
 class TranslationService:

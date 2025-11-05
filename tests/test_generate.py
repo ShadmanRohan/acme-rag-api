@@ -20,10 +20,7 @@ TEST_DATA_DIR = Path("app/data")
 @pytest.fixture(autouse=True)
 def cleanup_test_data():
     """Clean up test data before and after each test."""
-    os.environ["API_KEY"] = "test-key-123"
-    # Set OpenAI API key for tests (use a test key if available, otherwise tests will fail)
-    if "OPENAI_API_KEY" not in os.environ:
-        os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY", "")
+    os.environ["OPENAI_API_KEY"] = "test-key-123"
     # Reset global service instances
     reset_embedding_service()
     reset_store_service()

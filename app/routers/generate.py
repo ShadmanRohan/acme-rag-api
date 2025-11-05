@@ -2,12 +2,12 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.common.utils import format_snippet
 from app.services.embeddings import get_embedding_service
 from app.services.language import detect_language
 from app.services.llm import get_llm_service
 from app.services.store import get_store_service
 from app.services.translate import get_translation_service
-from app.routers.retrieve import format_snippet
 
 router = APIRouter(prefix="/generate", tags=["generate"])
 

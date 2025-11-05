@@ -3,18 +3,11 @@ import base64
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from pydantic import BaseModel
 
 from app.services.language import detect_language
 from app.services.store import get_store_service
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
-
-
-class IngestRequest(BaseModel):
-    """Request model for base64 JSON ingestion."""
-    content: str  # base64 encoded text content
-    filename: str = "document.txt"
 
 
 def _process_content(text_content: str) -> dict:

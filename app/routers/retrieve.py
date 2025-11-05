@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.common.utils import format_snippet
 from app.services.embeddings import get_embedding_service
 from app.services.store import get_store_service
 
@@ -26,37 +27,6 @@ class RetrieveResult(BaseModel):
 class RetrieveResponse(BaseModel):
     """Response model for retrieval."""
     results: list[RetrieveResult]
-
-
-def format_snippet(content: str, max_length: int = 160) -> str:
-    """Format content as a snippet (≤max_length, word-safe, no newlines).
-    
-    Args:
-        content: Full content to format.
-        max_length: Maximum length of snippet (default: 160).
-        
-    Returns:
-        Formatted snippet string.
-    """
-    # Remove newlines and normalize whitespace
-    text = " ".join(content.split())
-    
-    if len(text) <= max_length:
-        return text
-    
-    # Truncate at word boundary
-    truncated = text[:max_length]
-    # Find last space before max_length
-    last_space = truncated.rfind(" ")
-    if last_space > max_length * 0.7:  # Only use word boundary if it's not too short
-        snippet = truncated[:last_space]
-    else:
-        snippet = truncated
-    
-    # Ensure no trailing whitespace
-    snippet = snippet.rstrip()
-    
-    return snippet
 
 
 @router.post("", response_model=RetrieveResponse)
@@ -100,8 +70,8 @@ async def retrieve(request: RetrieveRequest) -> RetrieveResponse:
     
     # Ensure deterministic ordering on ties (by doc_id)
     # Results are already sorted by score from FAISS, but we need to handle ties
-    # Sort by (score DESC, doc_id ASC) for deterministic ordering
-    results.sort(key=lambda x: (-x.score, x.doc_id))
+    # Sort by (score ASC, doc_id ASC) for deterministic ordering (lower score is better)
+    results.sort(key=lambda x: (x.score, x.doc_id))
     
     # Ensure we return at most k results
     results = results[:request.k]

@@ -29,7 +29,6 @@ jobs:
       - name: Run pytest
         run: pytest -q
         env:
-          API_KEY: test-key-123
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   
   build:
@@ -50,7 +49,6 @@ jobs:
       - name: Test Docker image
         run: |
           docker run -d --name acme-test -p 8001:8000 \
-            -e API_KEY=test-key-123 \
             -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
             acme-api:latest
           sleep 5

@@ -1,10 +1,16 @@
 """Main FastAPI application."""
+import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.common.errors import UnauthorizedError, create_error_response
 from app.routers import generate, ingest, retrieve
+
+# Load environment variables once at application startup
+load_dotenv()
 
 app = FastAPI(title="Acme API", version="0.1.0")
 
@@ -47,8 +53,7 @@ async def auth_middleware(request: Request, call_next):
         return create_error_response(401, "Missing X-API-Key header")
     
     # Validate the API key
-    import os
-    expected_key = os.getenv("API_KEY")
+    expected_key = os.getenv("OPENAI_API_KEY")
     if not expected_key:
         return create_error_response(500, "API key not configured on server")
     if api_key != expected_key:

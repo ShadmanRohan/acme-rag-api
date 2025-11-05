@@ -19,7 +19,7 @@ TEST_DATA_DIR = Path("app/data")
 @pytest.fixture(autouse=True)
 def cleanup_test_data():
     """Clean up test data before and after each test."""
-    os.environ["API_KEY"] = "test-key-123"
+    os.environ["OPENAI_API_KEY"] = "test-key-123"
     # Reset global service instances
     reset_embedding_service()
     reset_store_service()

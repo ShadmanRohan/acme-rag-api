@@ -51,6 +51,9 @@ class StoreService:
     
     def _save(self):
         """Save index and metadata to disk."""
+        # Ensure directory exists before saving
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        
         if self.index is not None:
             faiss.write_index(self.index, str(self.index_file))
         with open(self.metadata_file, "wb") as f:
@@ -73,7 +76,7 @@ class StoreService:
         content_hash = self._compute_hash(content)
         
         # Check if content already exists (idempotent by hash)
-        for i, meta in enumerate(self.metadata):
+        for meta in self.metadata:
             if meta.get("hash") == content_hash:
                 # Content already exists, return existing doc_id
                 return {

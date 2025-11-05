@@ -23,18 +23,13 @@ cd Acme
 pip install -r requirements.txt
 ```
 
-3. Copy environment file:
+3. Copy and configure environment file:
 ```bash
 cp .env.example .env
+# Edit .env and set your OPENAI_API_KEY
 ```
 
-4. Set your API keys in `.env`:
-```bash
-API_KEY=your-api-key-here
-OPENAI_API_KEY=your-openai-api-key-here
-```
-
-5. Run the application:
+4. Run the application:
 ```bash
 uvicorn app.main:app --reload
 ```
@@ -53,10 +48,12 @@ docker build -t acme-api:latest .
 docker run -d \
   --name acme-api \
   -p 8000:8000 \
-  -e API_KEY=your-api-key-here \
   -e OPENAI_API_KEY=your-openai-api-key-here \
+  -v $(pwd)/app/data:/app/app/data \
   acme-api:latest
 ```
+
+**Note:** The `-v $(pwd)/app/data:/app/app/data` volume mount ensures that embeddings and documents persist on the host machine even if the container is stopped or removed. Without this volume mount, all data will be lost when the container is removed.
 
 3. Check the health endpoint:
 ```bash
@@ -78,16 +75,10 @@ Expected response:
 
 ### Authentication
 
-All endpoints except `/health` require an `X-API-Key` header. Set your API key in the `.env` file:
+All endpoints except `/health` require an `X-API-Key` header. Use your `OPENAI_API_KEY` value in the header:
 
 ```bash
-echo "API_KEY=your-secret-key-here" >> .env
-```
-
-Then make authenticated requests:
-
-```bash
-curl -H "X-API-Key: your-secret-key-here" http://localhost:8000/docs
+curl -H "X-API-Key: your-openai-api-key" http://localhost:8000/docs
 ```
 
 ### Ingest Endpoint
@@ -251,12 +242,12 @@ To build and test the Docker image locally:
 # Build the image
 docker build -t acme-api:latest .
 
-# Run the container
+# Run the container (with volume mount for data persistence)
 docker run -d \
   --name acme-api-test \
   -p 8000:8000 \
-  -e API_KEY=test-key-123 \
   -e OPENAI_API_KEY=your-openai-api-key \
+  -v $(pwd)/app/data:/app/app/data \
   acme-api:latest
 
 # Test the health endpoint
