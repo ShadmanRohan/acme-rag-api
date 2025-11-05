@@ -1,12 +1,10 @@
 """Retrieve router."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.common.utils import format_snippet
-from app.config import DEFAULT_K, MAX_K, SNIPPET_MAX_LENGTH
-from app.services.embeddings import get_embedding_service
-from app.services.store import get_store_service
+from app.common.utils import search_documents, validate_query
+from app.config import DEFAULT_K, MAX_K
 
 router = APIRouter(prefix="/retrieve", tags=["retrieve"])
 
@@ -40,42 +38,18 @@ async def retrieve(request: RetrieveRequest) -> RetrieveResponse:
     Returns:
         Retrieve response with results.
     """
-    if not request.query or not request.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    validate_query(request.query)
+    search_results = search_documents(request.query, request.k)
     
-    store = get_store_service()
-    embedding_service = get_embedding_service()
-    
-    # Handle empty corpus gracefully
-    if store.get_size() == 0:
-        return RetrieveResponse(results=[])
-    
-    # Generate query embedding
-    query_embedding = embedding_service.embed(request.query)
-    
-    # Search for similar documents
-    search_results = store.search(query_embedding, k=request.k)
-    
-    # Format results with snippets and deterministic ordering
-    results = []
-    for result in search_results:
-        snippet = format_snippet(result["content"], max_length=SNIPPET_MAX_LENGTH)
-        results.append(
-            RetrieveResult(
-                doc_id=result["doc_id"],
-                score=result["score"],
-                snippet=snippet,
-                language=result["language"],
-            )
+    results = [
+        RetrieveResult(
+            doc_id=r["doc_id"],
+            score=r["score"],
+            snippet=r["snippet"],
+            language=r["language"],
         )
-    
-    # Ensure deterministic ordering on ties (by doc_id)
-    # Results are already sorted by score from FAISS, but we need to handle ties
-    # Sort by (score ASC, doc_id ASC) for deterministic ordering (lower score is better)
-    results.sort(key=lambda x: (x.score, x.doc_id))
-    
-    # Ensure we return at most k results
-    results = results[:request.k]
+        for r in search_results
+    ]
     
     return RetrieveResponse(results=results)
 

@@ -23,10 +23,3 @@ class UnauthorizedError(HTTPException):
     def __init__(self, message: str = "Unauthorized"):
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=message)
 
-
-class ValidationError(HTTPException):
-    """422 Validation error."""
-    
-    def __init__(self, message: str = "Validation error", details: dict | None = None):
-        super().__init__(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=message)
-

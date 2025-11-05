@@ -1,4 +1,5 @@
 """LLM service for composing answers using OpenAI API."""
+import os
 from typing import Any
 
 from fastapi import HTTPException
@@ -25,7 +26,6 @@ class LLMService:
     
     def __init__(self):
         """Initialize the LLM service."""
-        import os
         api_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")

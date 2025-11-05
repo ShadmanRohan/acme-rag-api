@@ -1,4 +1,6 @@
 """Translation service."""
+import os
+
 from fastapi import HTTPException
 from openai import OpenAI
 
@@ -10,7 +12,7 @@ from app.config import (
     OPENAI_TEMPERATURE_TRANSLATE,
     TRANSLATION_PROMPT_TEMPLATE,
 )
-from app.services.language import Language, detect_language
+from app.services.language import Language, get_language_service
 
 
 class TranslationService:
@@ -18,7 +20,6 @@ class TranslationService:
     
     def __init__(self):
         """Initialize translation service with OpenAI client."""
-        import os
         api_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
@@ -71,13 +72,8 @@ class TranslationService:
         Returns:
             Translated answer.
         """
-        # Detect source language
-        source_language = detect_language(answer)
-        
-        if source_language == target_language:
-            return answer
-        
-        return self.translate(answer, source_language, target_language)
+        source_language = get_language_service().detect(answer)
+        return answer if source_language == target_language else self.translate(answer, source_language, target_language)
 
 
 # Global instance
@@ -94,9 +90,3 @@ def get_translation_service() -> TranslationService:
     if _translation_service is None:
         _translation_service = TranslationService()
     return _translation_service
-
-
-def reset_translation_service():
-    """Reset the global translation service instance (for testing)."""
-    global _translation_service
-    _translation_service = None

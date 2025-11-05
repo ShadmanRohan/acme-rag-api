@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from app.config import ALLOWED_FILE_EXTENSION
-from app.services.language import detect_language
+from app.services.language import get_language_service
 from app.services.store import get_store_service
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -23,8 +23,7 @@ def _process_content(text_content: str) -> dict:
     if not text_content or not text_content.strip():
         raise HTTPException(status_code=400, detail="Content is empty")
     
-    # Detect language
-    language = detect_language(text_content)
+    language = get_language_service().detect(text_content)
     
     # Store content
     store = get_store_service()
