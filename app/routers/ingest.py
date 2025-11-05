@@ -2,13 +2,24 @@
 import base64
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.config import ALLOWED_FILE_EXTENSION
 from app.services.language import get_language_service
 from app.services.store import get_store_service
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+
+
+async def get_json_body(request: Request):
+    """Dependency to extract JSON body from request."""
+    try:
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            return await request.json()
+    except Exception:
+        pass
+    return None
 
 
 def _process_content(text_content: str) -> dict:
@@ -39,21 +50,21 @@ def _process_content(text_content: str) -> dict:
 
 @router.post("")
 async def ingest(
-    request: Request,
     file: Annotated[UploadFile | None, File()] = None,
     content: Annotated[str | None, Form()] = None,
+    json_body: dict | None = Depends(get_json_body),
 ):
     """Ingest text content via multipart file upload or base64 JSON.
     
-    Supports two formats:
+    Supports three formats:
     1. Multipart file upload: POST with file in 'file' field
-    2. Base64 JSON: POST with JSON body containing 'content' (base64) and 'filename'
+    2. Base64 JSON: POST with JSON body containing 'content' (base64)
     3. Base64 form: POST with 'content' form field containing base64 encoded text
     
     Args:
-        request: FastAPI request object.
         file: Uploaded file (multipart).
         content: Base64 encoded content (multipart form).
+        json_body: JSON body data (if content-type is application/json).
         
     Returns:
         Dict with doc_id, language, and status.
@@ -77,19 +88,19 @@ async def ingest(
             raise HTTPException(status_code=400, detail=f"Invalid base64 content: {str(e)}")
     
     # Handle JSON body with base64 content
-    else:
+    elif json_body is not None:
         try:
-            json_data = await request.json()
-            if "content" in json_data:
-                decoded_bytes = base64.b64decode(json_data["content"])
+            if "content" in json_body:
+                decoded_bytes = base64.b64decode(json_body["content"])
                 text_content = decoded_bytes.decode("utf-8")
             else:
                 raise HTTPException(status_code=400, detail="No content provided in JSON body")
-        except ValueError:
-            # Not JSON, check if it's multipart
-            raise HTTPException(status_code=400, detail="No content provided. Use file upload, base64 form field, or JSON body.")
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid base64 content: {str(e)}")
+    
+    # No content provided
+    else:
+        raise HTTPException(status_code=400, detail="No content provided. Use file upload, base64 form field, or JSON body.")
     
     return _process_content(text_content)
 
