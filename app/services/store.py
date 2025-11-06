@@ -30,7 +30,7 @@ class StoreService:
         self.metadata_file = METADATA_FILE
         
         self.embedding_service = get_embedding_service()
-        self.dimension = self.embedding_service.embedding_dimension
+        self.dimension = self.embedding_service.dimension
         
         self.index: faiss.IndexFlatL2 | None = None
         self.metadata: list[dict[str, Any]] = []
@@ -66,34 +66,6 @@ class StoreService:
         """Compute SHA256 hash of content."""
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
     
-    def _find_existing_content(self, content_hash: str) -> dict[str, Any] | None:
-        """Check if content already exists by hash.
-        
-        Returns:
-            Existing metadata dict if found, None otherwise.
-        """
-        for meta in self.metadata:
-            if meta.get("hash") == content_hash:
-                return meta
-        return None
-    
-    def _initialize_index_if_needed(self):
-        """Initialize FAISS index if it doesn't exist."""
-        if self.index is None:
-            index_class = getattr(faiss, FAISS_INDEX_TYPE)
-            self.index = index_class(self.dimension)
-    
-    def _create_metadata_entry(self, content: str, language: str, content_hash: str) -> dict[str, Any]:
-        """Create a new metadata entry."""
-        doc_id = f"{DOC_ID_PREFIX}{len(self.metadata)}"
-        return {
-            "doc_id": doc_id,
-            "hash": content_hash,
-            "language": language,
-            "content": content,
-            "index": len(self.metadata),
-        }
-    
     def add(self, content: str, language: str) -> dict[str, Any]:
         """Add content to the store.
         
@@ -107,42 +79,38 @@ class StoreService:
         content_hash = self._compute_hash(content)
         
         # Check if content already exists (idempotent by hash)
-        existing = self._find_existing_content(content_hash)
-        if existing:
-            return {
-                "doc_id": existing["doc_id"],
-                "hash": content_hash,
-                "added": False,
-            }
+        for meta in self.metadata:
+            if meta.get("hash") == content_hash:
+                return {
+                    "doc_id": meta["doc_id"],
+                    "hash": content_hash,
+                    "added": False,
+                }
         
         # Generate embedding and add to index
         embedding = self.embedding_service.embed(content)
-        self._initialize_index_if_needed()
+        if self.index is None:
+            index_class = getattr(faiss, FAISS_INDEX_TYPE)
+            self.index = index_class(self.dimension)
         embedding_array = embedding.reshape(1, -1)
         self.index.add(embedding_array)
         
         # Create and save metadata
-        metadata_entry = self._create_metadata_entry(content, language, content_hash)
+        doc_id = f"{DOC_ID_PREFIX}{len(self.metadata)}"
+        metadata_entry = {
+            "doc_id": doc_id,
+            "hash": content_hash,
+            "language": language,
+            "content": content,
+            "index": len(self.metadata),
+        }
         self.metadata.append(metadata_entry)
         self._save()
         
         return {
-            "doc_id": metadata_entry["doc_id"],
+            "doc_id": doc_id,
             "hash": content_hash,
             "added": True,
-        }
-    
-    def _is_valid_index(self, idx: int) -> bool:
-        """Check if index is valid for metadata."""
-        return 0 <= idx < len(self.metadata)
-    
-    def _build_search_result(self, meta: dict[str, Any], distance: float) -> dict[str, Any]:
-        """Build a search result dict from metadata and distance."""
-        return {
-            "doc_id": meta["doc_id"],
-            "score": float(distance),
-            "language": meta["language"],
-            "content": meta["content"],
         }
     
     def search(self, query_embedding: np.ndarray, k: int = None) -> list[dict[str, Any]]:
@@ -167,11 +135,16 @@ class StoreService:
         
         results = []
         for distance, idx in zip(distances[0], indices[0]):
-            if not self._is_valid_index(idx):
+            if idx < 0 or idx >= len(self.metadata):
                 continue
             
             meta = self.metadata[idx]
-            results.append(self._build_search_result(meta, distance))
+            results.append({
+                "doc_id": meta["doc_id"],
+                "score": float(distance),
+                "language": meta["language"],
+                "content": meta["content"],
+            })
         
         # Sort by score (ascending, lower distance is better) then by doc_id for deterministic ordering
         results.sort(key=lambda x: (x["score"], x["doc_id"]))

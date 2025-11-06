@@ -5,8 +5,8 @@
 # LLM prompts
 llm:
   system_prompts:
-    en: "You are a helpful assistant that answers questions using the provided context. Include citations in the format [doc_N] for each piece of information used."
-    ja: "あなたは質問に答えるアシスタントです。提供されたコンテキスト情報を使用して、質問に正確に答えてください。各回答には[doc_N]形式の引用を含めてください。"
+    en: "You are a helpful assistant that answers questions using the provided context."
+    ja: "あなたは質問に答えるアシスタントです。提供されたコンテキスト情報を使用して、質問に正確に答えてください。"
   
   user_prompt_templates:
     en: "Question: {query}\n\nContext information:\n{context}\n\nPlease answer the question using the context information above."
@@ -22,8 +22,6 @@ messages:
 translation:
   prompt_template: |
     Translate the following text from {source_language} to {target_language}.
-
-    Important: Preserve all citation markers in the format [Citation: doc_id]. Do not translate citations.
 
     Text to translate:
     {text}

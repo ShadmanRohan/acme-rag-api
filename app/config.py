@@ -69,13 +69,8 @@ SEARCH_K_MULTIPLIER = int(os.getenv("SEARCH_K_MULTIPLIER", "2"))
 FAISS_INDEX_TYPE = os.getenv("FAISS_INDEX_TYPE", "IndexFlatL2")
 
 # Language detection configuration
-LANGUAGE_DETECTION_THRESHOLD = float(os.getenv("LANGUAGE_DETECTION_THRESHOLD", "0.1"))
 LANGUAGE_DETECTION_TEXT_LIMIT = int(os.getenv("LANGUAGE_DETECTION_TEXT_LIMIT", "200"))
 LANGUAGE_DEFAULT = os.getenv("LANGUAGE_DEFAULT", "en")
-LANGUAGE_DETECTION_PATTERN = os.getenv(
-    "LANGUAGE_DETECTION_PATTERN",
-    r"[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]"
-)
 
 # Supported languages
 SUPPORTED_LANGUAGES: list[Literal["en", "ja"]] = ["en", "ja"]
@@ -83,18 +78,14 @@ SUPPORTED_LANGUAGES: list[Literal["en", "ja"]] = ["en", "ja"]
 # File upload configuration
 ALLOWED_FILE_EXTENSION = os.getenv("ALLOWED_FILE_EXTENSION", ".txt")
 
-# Citation configuration
-CITATION_TEMP_FORMAT = os.getenv("CITATION_TEMP_FORMAT", "[doc_{index}]")
-CITATION_FINAL_FORMAT = os.getenv("CITATION_FINAL_FORMAT", "[Citation: {doc_id}]")
-
 # LLM prompts (loaded from YAML, fallback to env vars or defaults)
 LLM_SYSTEM_PROMPT_EN = os.getenv(
     "LLM_SYSTEM_PROMPT_EN",
-    _get_yaml_value("llm.system_prompts.en", "You are a helpful assistant that answers questions using the provided context. Include citations in the format [doc_N] for each piece of information used.")
+    _get_yaml_value("llm.system_prompts.en", "You are a helpful assistant that answers questions using the provided context.")
 )
 LLM_SYSTEM_PROMPT_JA = os.getenv(
     "LLM_SYSTEM_PROMPT_JA",
-    _get_yaml_value("llm.system_prompts.ja", "あなたは質問に答えるアシスタントです。提供されたコンテキスト情報を使用して、質問に正確に答えてください。各回答には[doc_N]形式の引用を含めてください。")
+    _get_yaml_value("llm.system_prompts.ja", "あなたは質問に答えるアシスタントです。提供されたコンテキスト情報を使用して、質問に正確に答えてください。")
 )
 LLM_USER_PROMPT_TEMPLATE_EN = os.getenv(
     "LLM_USER_PROMPT_TEMPLATE_EN",
@@ -121,8 +112,6 @@ TRANSLATION_PROMPT_TEMPLATE = os.getenv(
     _get_yaml_value(
         "translation.prompt_template",
         """Translate the following text from {source_language} to {target_language}.
-
-Important: Preserve all citation markers in the format [Citation: doc_id]. Do not translate citations.
 
 Text to translate:
 {text}"""

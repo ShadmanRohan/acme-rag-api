@@ -242,5 +242,5 @@ def test_retrieve_empty_query(cleanup_test_data):
         headers={"X-API-Key": "test-key-123"}
     )
     
-    assert response.status_code == 400
+    assert response.status_code == 422  # Pydantic validation error
 

@@ -36,11 +36,6 @@ class EmbeddingService:
         """
         embedding = self.model.encode(text, convert_to_numpy=True)
         return embedding.astype(np.float32)
-    
-    @property
-    def embedding_dimension(self) -> int:
-        """Get the dimension of embeddings."""
-        return self.dimension
 
 
 # Global instance

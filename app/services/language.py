@@ -1,15 +1,13 @@
 """Language detection service."""
 import os
-import re
 from typing import Literal
 
+from fastapi import HTTPException
 from openai import OpenAI
 
 from app.config import (
     LANGUAGE_DEFAULT,
-    LANGUAGE_DETECTION_PATTERN,
     LANGUAGE_DETECTION_TEXT_LIMIT,
-    LANGUAGE_DETECTION_THRESHOLD,
     OPENAI_API_KEY,
     OPENAI_MAX_TOKENS_DETECT,
     OPENAI_MODEL,
@@ -30,56 +28,39 @@ class LanguageService:
             raise ValueError("OPENAI_API_KEY environment variable is required")
         self.client = OpenAI(api_key=api_key)
     
-    def _detect_with_openai(self, text: str) -> Language:
-        """Detect language using OpenAI API.
-        
-        Returns:
-            'en' for English, 'ja' for Japanese.
-        """
-        text_sample = text[:LANGUAGE_DETECTION_TEXT_LIMIT]
-        prompt = LANGUAGE_DETECTION_PROMPT_TEMPLATE.format(text=text_sample)
-        
-        response = self.client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=OPENAI_TEMPERATURE_DETECT,
-            max_tokens=OPENAI_MAX_TOKENS_DETECT,
-        )
-        
-        result = response.choices[0].message.content.strip().lower()
-        return "ja" if "ja" in result or "japanese" in result else "en"
-    
-    def _detect_with_regex_fallback(self, text: str) -> Language:
-        """Fallback language detection using regex pattern matching.
-        
-        Returns:
-            'en' for English, 'ja' for Japanese.
-        """
-        japanese_pattern = re.compile(LANGUAGE_DETECTION_PATTERN)
-        japanese_chars = len(japanese_pattern.findall(text))
-        non_whitespace = len(re.sub(r'\s+', '', text))
-        
-        if non_whitespace > 0 and japanese_chars / non_whitespace > LANGUAGE_DETECTION_THRESHOLD:
-            return "ja"
-        return "en"
-    
     def detect(self, text: str) -> Language:
-        """Detect language using OpenAI API. If fails, use a basic regex check.
+        """Detect language using OpenAI API.
         
         Args:
             text: Text to analyze.
             
         Returns:
             'en' for English, 'ja' for Japanese.
+            
+        Raises:
+            HTTPException: If OpenAI API call fails.
         """
         if not text.strip():
             return LANGUAGE_DEFAULT
         
         try:
-            return self._detect_with_openai(text)
-        except Exception:
-            # Fallback: basic regex check if API fails
-            return self._detect_with_regex_fallback(text)
+            text_sample = text[:LANGUAGE_DETECTION_TEXT_LIMIT]
+            prompt = LANGUAGE_DETECTION_PROMPT_TEMPLATE.format(text=text_sample)
+            
+            response = self.client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=OPENAI_TEMPERATURE_DETECT,
+                max_tokens=OPENAI_MAX_TOKENS_DETECT,
+            )
+            
+            result = response.choices[0].message.content.strip().lower()
+            return "ja" if "ja" in result or "japanese" in result else "en"
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to detect language using OpenAI API: {str(e)}"
+            )
 
 
 # Global instance
