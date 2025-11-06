@@ -6,11 +6,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.common.errors import create_error_response
 from app.config import (
+    ACME_API_KEY,
     API_KEY_HEADER,
     APP_NAME,
     APP_VERSION,
     HEALTH_CHECK_PATH,
-    OPENAI_API_KEY,
 )
 from app.routers import generate, ingest, retrieve
 
@@ -51,9 +51,9 @@ async def auth_middleware(request: Request, call_next):
     if not api_key:
         return create_error_response(401, f"Missing {API_KEY_HEADER} header")
     
-    # Validate the API key (read from environment dynamically for tests)
+    # Validate the API key (check env first for testability, then fall back to config)
     import os
-    expected_key = os.getenv("OPENAI_API_KEY") or OPENAI_API_KEY
+    expected_key = os.getenv("ACME_API_KEY") or ACME_API_KEY
     if not expected_key:
         return create_error_response(500, "API key not configured on server")
     if api_key != expected_key:

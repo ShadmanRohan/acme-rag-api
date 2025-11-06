@@ -37,6 +37,7 @@ APP_NAME = os.getenv("APP_NAME", "Acme API")
 APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 HEALTH_CHECK_PATH = os.getenv("HEALTH_CHECK_PATH", "/health")
 API_KEY_HEADER = os.getenv("API_KEY_HEADER", "X-API-Key")
+ACME_API_KEY = os.getenv("ACME_API_KEY")
 
 # OpenAI API configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

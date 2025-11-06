@@ -1,6 +1,36 @@
 # Acme API
 
-A FastAPI application for ingesting text, searching documents, and generating answers with citations.
+A FastAPI application for ingesting text documents, searching with embeddings, and generating AI-powered answers.
+
+## Architecture
+
+![Architecture](architecture.png)
+
+## Repository Structure
+
+```
+Acme/
+├── app/
+│   ├── main.py              # FastAPI application & middleware
+│   ├── config.py            # Configuration (env vars + YAML)
+│   ├── common/              # Shared utilities & error handling
+│   │   ├── errors.py        # Error response utilities
+│   │   └── utils.py         # Helper functions (snippet formatting, etc.)
+│   ├── routers/             # API endpoints
+│   │   ├── ingest.py        # Document ingestion endpoint
+│   │   ├── retrieve.py      # Document retrieval endpoint
+│   │   └── generate.py      # Answer generation endpoint
+│   └── services/            # Core business logic
+│       ├── embeddings.py    # Text embedding generation
+│       ├── store.py         # FAISS index & document storage
+│       ├── language.py      # Language detection
+│       ├── llm.py           # LLM answer composition
+│       └── translate.py     # Text translation
+├── tests/                   # Test suite
+├── config.yml               # User-editable prompts & messages
+├── requirements.txt         # Python dependencies
+└── Dockerfile              # Container configuration
+```
 
 ## Quick Start
 
@@ -13,26 +43,24 @@ pip install -r requirements.txt
 
 2. Set up your API key:
 ```bash
-cp .env.example .env
-# Add your OPENAI_API_KEY to .env
+export OPENAI_API_KEY=your-key-here
 ```
 
-3. (Optional) Customize prompts and messages:
+3. (Optional) Customize prompts:
 ```bash
 cp config.yml.example config.yml
-# Edit config.yml to tweak prompts, messages, etc.
+# Edit config.yml to customize prompts and messages
 ```
 
-4. Run it:
+4. Run the server:
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Visit `http://localhost:8000/docs` to see the API docs.
+Visit `http://localhost:8000/docs` for API documentation.
 
 ### Docker
 
-Build and run:
 ```bash
 docker build -t acme-api:latest .
 docker run -d \
@@ -43,43 +71,20 @@ docker run -d \
   acme-api:latest
 ```
 
-The volume mount keeps your data safe when the container stops.
-
 ## API Endpoints
-
-### Health Check
-
-```bash
-curl http://localhost:8000/health
-```
-
-Returns `{"status":"ok"}` - no auth needed.
 
 ### Authentication
 
-All endpoints except `/health` need an `X-API-Key` header with your `OPENAI_API_KEY`:
-
-```bash
-curl -H "X-API-Key: your-key-here" http://localhost:8000/docs
-```
+All endpoints except `/health` require `X-API-Key` header with your `OPENAI_API_KEY`.
 
 ### Ingest Documents
 
-Upload text files (`.txt` only) to store them with embeddings:
+Upload `.txt` files to store them with embeddings:
 
-```bash
-# Upload a file
-curl -X POST http://localhost:8000/ingest \
-  -H "X-API-Key: your-key-here" \
-  -F "file=@document.txt"
-```
-
-Or send base64-encoded content:
 ```bash
 curl -X POST http://localhost:8000/ingest \
   -H "X-API-Key: your-key-here" \
-  -H "Content-Type: application/json" \
-  -d '{"content": "base64-encoded-text"}'
+  -F "files=@document.txt"
 ```
 
 **Response:**
@@ -92,13 +97,11 @@ curl -X POST http://localhost:8000/ingest \
 }
 ```
 
-The endpoint automatically:
-- Detects language (English or Japanese)
-- Creates embeddings
-- Stores in FAISS index
+- Automatically detects language (English or Japanese)
+- Creates embeddings and stores in FAISS index
 - Deduplicates by content hash
 
-### Search Documents
+### Retrieve Documents
 
 Search for similar documents:
 
@@ -123,14 +126,9 @@ curl -X POST http://localhost:8000/retrieve \
 }
 ```
 
-- Default `k=3` (change with `k` parameter)
-- Snippets are ≤160 chars, word-safe
-- Lower scores = better matches
-- Empty corpus returns empty results (no error)
-
 ### Generate Answers
 
-Get an AI-generated answer with citations:
+Get AI-generated answers:
 
 ```bash
 curl -X POST http://localhost:8000/generate \
@@ -142,84 +140,29 @@ curl -X POST http://localhost:8000/generate \
 **Response:**
 ```json
 {
-  "answer": "Based on your query... [Citation: doc_0]",
-  "citations": ["doc_0", "doc_1"],
+  "answer": "Based on your query...",
   "language": "en",
   "query": "software development"
 }
 ```
 
-Features:
 - Auto-detects query language
 - Optional `output_language` for translation ('en' or 'ja')
-- Includes citations from retrieved docs
-- Works even with empty corpus
 
 ## Configuration
 
-We use a hybrid config approach:
+- **Environment variables** - Override technical settings (model names, thresholds)
+- **config.yml** - Customize prompts and messages (optional)
+- **app/config.py** - Default values and type-safe configuration
 
-1. **Python config** (`app/config.py`) - Technical settings (model names, thresholds, paths)
-   - Override with environment variables
-   - Type-safe, IDE-friendly
-
-2. **YAML config** (`config.yml`) - User-friendly settings (prompts, messages)
-   - Easy to edit without Python knowledge
-   - Copy `config.yml.example` to get started
-
-**Priority:** Environment variables > YAML config > Python defaults
-
-If `config.yml` doesn't exist, it falls back to Python defaults - no worries!
+Priority: Environment variables > YAML config > Python defaults
 
 ## Development
 
-Run tests:
 ```bash
+# Run tests
 pytest -q
-```
 
-Lint code:
-```bash
+# Lint code
 ruff .
-```
-
-## Project Structure
-
-```
-Acme/
-├── app/
-│   ├── main.py          # FastAPI app
-│   ├── config.py        # Config (Python + YAML)
-│   ├── common/          # Utilities
-│   ├── routers/         # API endpoints
-│   └── services/        # Business logic
-├── config.yml           # YAML config (optional)
-├── tests/               # Tests
-└── requirements.txt     # Dependencies
-```
-
-## Error Format
-
-All errors follow the same format:
-
-```json
-{
-  "error": {
-    "message": "Error message",
-    "status_code": 401
-  }
-}
-```
-
-Validation errors include details:
-```json
-{
-  "error": {
-    "message": "Validation error",
-    "status_code": 422,
-    "details": {
-      "field_name": "error message"
-    }
-  }
-}
 ```
