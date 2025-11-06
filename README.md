@@ -41,9 +41,19 @@ Acme/
 pip install -r requirements.txt
 ```
 
-2. Set up your API key:
+2. Set up your API keys:
 ```bash
-export OPENAI_API_KEY=your-key-here
+# Client authentication key (for X-API-Key header)
+export ACME_API_KEY=your-acme-key-here
+
+# OpenAI API key (for OpenAI service calls)
+export OPENAI_API_KEY=your-openai-key-here
+```
+
+Or copy `.env.example` to `.env` and fill in your keys:
+```bash
+cp .env.example .env
+# Edit .env with your keys
 ```
 
 3. (Optional) Customize prompts:
@@ -66,7 +76,8 @@ docker build -t acme-api:latest .
 docker run -d \
   --name acme-api \
   -p 8000:8000 \
-  -e OPENAI_API_KEY=your-key-here \
+  -e ACME_API_KEY=your-acme-key-here \
+  -e OPENAI_API_KEY=your-openai-key-here \
   -v $(pwd)/app/data:/app/app/data \
   acme-api:latest
 ```
@@ -75,7 +86,7 @@ docker run -d \
 
 ### Authentication
 
-All endpoints except `/health` require `X-API-Key` header with your `OPENAI_API_KEY`.
+All endpoints except `/health` require `X-API-Key` header with your `ACME_API_KEY` (client authentication key). This is separate from `OPENAI_API_KEY`, which is used internally for OpenAI service calls.
 
 ### Ingest Documents
 
@@ -83,7 +94,7 @@ Upload `.txt` files to store them with embeddings:
 
 ```bash
 curl -X POST http://localhost:8000/ingest \
-  -H "X-API-Key: your-key-here" \
+  -H "X-API-Key: your-acme-key-here" \
   -F "files=@document.txt"
 ```
 
@@ -107,7 +118,7 @@ Search for similar documents:
 
 ```bash
 curl -X POST http://localhost:8000/retrieve \
-  -H "X-API-Key: your-key-here" \
+  -H "X-API-Key: your-acme-key-here" \
   -H "Content-Type: application/json" \
   -d '{"query": "software development", "k": 3}'
 ```
@@ -132,7 +143,7 @@ Get AI-generated answers:
 
 ```bash
 curl -X POST http://localhost:8000/generate \
-  -H "X-API-Key: your-key-here" \
+  -H "X-API-Key: your-acme-key-here" \
   -H "Content-Type: application/json" \
   -d '{"query": "software development", "k": 3, "output_language": "en"}'
 ```
