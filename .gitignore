@@ -47,3 +47,7 @@ app/data/*.index
 app/data/*.faiss
 app/data/*.pkl
 
+# Generated files
+*.pdf
+*.zip
+
