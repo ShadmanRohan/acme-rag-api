@@ -130,23 +130,21 @@ def test_generate_empty_corpus(cleanup_test_data):
     assert response.status_code == 200
     data = response.json()
     assert "answer" in data
-    assert "citations" in data
     assert "language" in data
     assert "query" in data
-    assert data["citations"] == []
     assert "sorry" in data["answer"].lower() or "申し訳" in data["answer"]
 
 
-def test_generate_with_citations(cleanup_test_data):
-    """Test that generate includes citations when results exist."""
+def test_generate_with_results(cleanup_test_data):
+    """Test that generate works when results exist."""
     # Ingest some documents
     content1 = "Software development best practices."
     content2 = "Programming languages overview."
     content3 = "Testing methodologies."
     
-    files1 = {"file": ("test1.txt", content1, "text/plain")}
-    files2 = {"file": ("test2.txt", content2, "text/plain")}
-    files3 = {"file": ("test3.txt", content3, "text/plain")}
+    files1 = {"files": ("test1.txt", content1, "text/plain")}
+    files2 = {"files": ("test2.txt", content2, "text/plain")}
+    files3 = {"files": ("test3.txt", content3, "text/plain")}
     
     client.post("/ingest", files=files1, headers={"X-API-Key": "test-key-123"})
     client.post("/ingest", files=files2, headers={"X-API-Key": "test-key-123"})
@@ -162,17 +160,16 @@ def test_generate_with_citations(cleanup_test_data):
     assert response.status_code == 200
     data = response.json()
     assert "answer" in data
-    assert "citations" in data
-    assert len(data["citations"]) >= 1  # Should have at least one citation
-    assert all(isinstance(cite, str) for cite in data["citations"])
-    assert data["citations"][0].startswith("doc_")  # Citations should be doc_ids
+    assert "language" in data
+    assert "query" in data
+    assert len(data["answer"]) > 0
 
 
 def test_generate_output_language_en(cleanup_test_data):
     """Test that output_language='en' produces English answer."""
     # Ingest a document
     content = "Software development guidelines."
-    files = {"file": ("test.txt", content, "text/plain")}
+    files = {"files": ("test.txt", content, "text/plain")}
     client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Generate with explicit English
@@ -193,7 +190,7 @@ def test_generate_output_language_ja(cleanup_test_data):
     """Test that output_language='ja' produces Japanese answer."""
     # Ingest a document
     content = "ソフトウェア開発のガイドライン。"
-    files = {"file": ("test_ja.txt", content, "text/plain")}
+    files = {"files": ("test_ja.txt", content, "text/plain")}
     client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Generate with explicit Japanese
@@ -214,7 +211,7 @@ def test_generate_detects_query_language(cleanup_test_data):
     """Test that generate detects query language when output_language not provided."""
     # Ingest documents
     content = "Software development."
-    files = {"file": ("test.txt", content, "text/plain")}
+    files = {"files": ("test.txt", content, "text/plain")}
     client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Generate with English query (should detect as English)
@@ -277,7 +274,7 @@ def test_generate_response_structure(cleanup_test_data):
     """Test that generate response has correct structure."""
     # Ingest a document
     content = "Software development best practices."
-    files = {"file": ("test.txt", content, "text/plain")}
+    files = {"files": ("test.txt", content, "text/plain")}
     client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Generate
@@ -292,13 +289,11 @@ def test_generate_response_structure(cleanup_test_data):
     
     # Check required fields
     assert "answer" in data
-    assert "citations" in data
     assert "language" in data
     assert "query" in data
     
     # Check types
     assert isinstance(data["answer"], str)
-    assert isinstance(data["citations"], list)
     assert isinstance(data["language"], str)
     assert isinstance(data["query"], str)
     
@@ -314,7 +309,7 @@ def test_generate_custom_k(cleanup_test_data):
     # Ingest multiple documents
     for i in range(5):
         content = f"Document {i} about software."
-        files = {"file": (f"test{i}.txt", content, "text/plain")}
+        files = {"files": (f"test{i}.txt", content, "text/plain")}
         client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Generate with custom k
@@ -326,6 +321,6 @@ def test_generate_custom_k(cleanup_test_data):
     
     assert response.status_code == 200
     data = response.json()
-    # Should have citations based on k=2
-    assert len(data["citations"]) <= 2
+    assert "answer" in data
+    assert len(data["answer"]) > 0
 

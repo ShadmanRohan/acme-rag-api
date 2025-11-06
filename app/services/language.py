@@ -30,6 +30,39 @@ class LanguageService:
             raise ValueError("OPENAI_API_KEY environment variable is required")
         self.client = OpenAI(api_key=api_key)
     
+    def _detect_with_openai(self, text: str) -> Language:
+        """Detect language using OpenAI API.
+        
+        Returns:
+            'en' for English, 'ja' for Japanese.
+        """
+        text_sample = text[:LANGUAGE_DETECTION_TEXT_LIMIT]
+        prompt = LANGUAGE_DETECTION_PROMPT_TEMPLATE.format(text=text_sample)
+        
+        response = self.client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=OPENAI_TEMPERATURE_DETECT,
+            max_tokens=OPENAI_MAX_TOKENS_DETECT,
+        )
+        
+        result = response.choices[0].message.content.strip().lower()
+        return "ja" if "ja" in result or "japanese" in result else "en"
+    
+    def _detect_with_regex_fallback(self, text: str) -> Language:
+        """Fallback language detection using regex pattern matching.
+        
+        Returns:
+            'en' for English, 'ja' for Japanese.
+        """
+        japanese_pattern = re.compile(LANGUAGE_DETECTION_PATTERN)
+        japanese_chars = len(japanese_pattern.findall(text))
+        non_whitespace = len(re.sub(r'\s+', '', text))
+        
+        if non_whitespace > 0 and japanese_chars / non_whitespace > LANGUAGE_DETECTION_THRESHOLD:
+            return "ja"
+        return "en"
+    
     def detect(self, text: str) -> Language:
         """Detect language using OpenAI API. If fails, use a basic regex check.
         
@@ -42,27 +75,11 @@ class LanguageService:
         if not text.strip():
             return LANGUAGE_DEFAULT
         
-        text_sample = text[:LANGUAGE_DETECTION_TEXT_LIMIT]
-        prompt = LANGUAGE_DETECTION_PROMPT_TEMPLATE.format(text=text_sample)
-        
         try:
-            response = self.client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=OPENAI_TEMPERATURE_DETECT,
-                max_tokens=OPENAI_MAX_TOKENS_DETECT,
-            )
-            
-            result = response.choices[0].message.content.strip().lower()
-            return "ja" if "ja" in result or "japanese" in result else "en"
+            return self._detect_with_openai(text)
         except Exception:
             # Fallback: basic regex check if API fails
-            japanese_pattern = re.compile(LANGUAGE_DETECTION_PATTERN)
-            japanese_chars = len(japanese_pattern.findall(text))
-            non_whitespace = len(re.sub(r'\s+', '', text))
-            if non_whitespace > 0 and japanese_chars / non_whitespace > LANGUAGE_DETECTION_THRESHOLD:
-                return "ja"
-            return "en"
+            return self._detect_with_regex_fallback(text)
 
 
 # Global instance

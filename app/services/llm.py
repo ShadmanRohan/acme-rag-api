@@ -6,8 +6,6 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from app.config import (
-    CITATION_FINAL_FORMAT,
-    CITATION_TEMP_FORMAT,
     EMPTY_RESULT_MESSAGE_EN,
     EMPTY_RESULT_MESSAGE_JA,
     LLM_SYSTEM_PROMPT_EN,
@@ -31,6 +29,42 @@ class LLMService:
             raise ValueError("OPENAI_API_KEY environment variable is required")
         self.client = OpenAI(api_key=api_key)
     
+    def _get_empty_result_message(self, language: str) -> str:
+        """Get empty result message for the given language."""
+        return EMPTY_RESULT_MESSAGE_JA if language == "ja" else EMPTY_RESULT_MESSAGE_EN
+    
+    def _build_context(self, results: list[dict[str, Any]]) -> str:
+        """Build context string from retrieved snippets."""
+        snippets = [result.get("snippet", "") for result in results]
+        return "\n\n".join(snippets)
+    
+    def _build_prompts(self, query: str, context: str, language: str) -> tuple[str, str]:
+        """Build system and user prompts based on language.
+        
+        Returns:
+            Tuple of (system_prompt, user_prompt)
+        """
+        if language == "ja":
+            system_prompt = LLM_SYSTEM_PROMPT_JA
+            user_prompt = LLM_USER_PROMPT_TEMPLATE_JA.format(query=query, context=context)
+        else:
+            system_prompt = LLM_SYSTEM_PROMPT_EN
+            user_prompt = LLM_USER_PROMPT_TEMPLATE_EN.format(query=query, context=context)
+        return system_prompt, user_prompt
+    
+    def _call_openai_api(self, system_prompt: str, user_prompt: str) -> str:
+        """Call OpenAI API and return the answer."""
+        response = self.client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=OPENAI_TEMPERATURE_LLM,
+            max_tokens=OPENAI_MAX_TOKENS_LLM,
+        )
+        return response.choices[0].message.content.strip()
+    
     def compose_answer(
         self,
         query: str,
@@ -45,74 +79,23 @@ class LLMService:
             language: Target language for the answer ('en' or 'ja').
             
         Returns:
-            Composed answer string with citations.
+            Composed answer string.
             
         Raises:
             HTTPException: If OpenAI API call fails.
         """
         if not results:
-            if language == "ja":
-                return EMPTY_RESULT_MESSAGE_JA
-            return EMPTY_RESULT_MESSAGE_EN
+            return self._get_empty_result_message(language)
         
         try:
-            # Build context from retrieved snippets
-            context_parts = []
-            citations_map = {}
-            for i, result in enumerate(results, 1):
-                snippet = result.get("snippet", "")
-                doc_id = result.get("doc_id", "")
-                temp_citation = CITATION_TEMP_FORMAT.format(index=i)
-                citations_map[temp_citation] = doc_id
-                context_parts.append(f"{temp_citation} {snippet}")
-            
-            context = "\n\n".join(context_parts)
-            
-            # Build prompt based on language
-            if language == "ja":
-                system_prompt = LLM_SYSTEM_PROMPT_JA
-                user_prompt = LLM_USER_PROMPT_TEMPLATE_JA.format(query=query, context=context)
-            else:
-                system_prompt = LLM_SYSTEM_PROMPT_EN
-                user_prompt = LLM_USER_PROMPT_TEMPLATE_EN.format(query=query, context=context)
-            
-            # Call OpenAI API
-            response = self.client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=OPENAI_TEMPERATURE_LLM,
-                max_tokens=OPENAI_MAX_TOKENS_LLM,
-            )
-            
-            answer = response.choices[0].message.content.strip()
-            
-            # Replace temporary citation references with final citation format
-            for ref, doc_id in citations_map.items():
-                final_citation = CITATION_FINAL_FORMAT.format(doc_id=doc_id)
-                answer = answer.replace(ref, final_citation)
-            
-            return answer
-            
+            context = self._build_context(results)
+            system_prompt, user_prompt = self._build_prompts(query, context, language)
+            return self._call_openai_api(system_prompt, user_prompt)
         except Exception as e:
-            # Raise HTTP exception if API call fails
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to generate answer using OpenAI API: {str(e)}"
             )
-    
-    def get_citations(self, results: list[dict[str, Any]]) -> list[str]:
-        """Extract citations from results.
-        
-        Args:
-            results: List of retrieved results with doc_id.
-            
-        Returns:
-            List of citation doc_ids.
-        """
-        return [result.get("doc_id", "") for result in results if result.get("doc_id")]
 
 
 # Global instance

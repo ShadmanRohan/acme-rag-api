@@ -58,10 +58,10 @@ def test_retrieve_default_k(cleanup_test_data):
     content3 = "A third document about testing."
     content4 = "Fourth document about deployment."
     
-    files1 = {"file": ("test1.txt", content1, "text/plain")}
-    files2 = {"file": ("test2.txt", content2, "text/plain")}
-    files3 = {"file": ("test3.txt", content3, "text/plain")}
-    files4 = {"file": ("test4.txt", content4, "text/plain")}
+    files1 = {"files": ("test1.txt", content1, "text/plain")}
+    files2 = {"files": ("test2.txt", content2, "text/plain")}
+    files3 = {"files": ("test3.txt", content3, "text/plain")}
+    files4 = {"files": ("test4.txt", content4, "text/plain")}
     
     client.post("/ingest", files=files1, headers={"X-API-Key": "test-key-123"})
     client.post("/ingest", files=files2, headers={"X-API-Key": "test-key-123"})
@@ -87,7 +87,7 @@ def test_retrieve_custom_k(cleanup_test_data):
     # Ingest documents
     contents = [f"This is document {i}." for i in range(5)]
     for i, content in enumerate(contents):
-        files = {"file": (f"test{i}.txt", content, "text/plain")}
+        files = {"files": (f"test{i}.txt", content, "text/plain")}
         client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Retrieve with custom k
@@ -107,7 +107,7 @@ def test_retrieve_snippet_formatting(cleanup_test_data):
     """Test that snippets are ≤160 chars, word-safe, and no newlines."""
     # Ingest a long document
     long_content = "This is a very long document. " * 20  # Much longer than 160 chars
-    files = {"file": ("long.txt", long_content, "text/plain")}
+    files = {"files": ("long.txt", long_content, "text/plain")}
     client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Retrieve
@@ -139,7 +139,7 @@ def test_retrieve_scores_monotonic(cleanup_test_data):
         "Testing and quality assurance",
     ]
     for i, content in enumerate(contents):
-        files = {"file": (f"test{i}.txt", content, "text/plain")}
+        files = {"files": (f"test{i}.txt", content, "text/plain")}
         client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Retrieve
@@ -165,7 +165,7 @@ def test_retrieve_deterministic_ordering(cleanup_test_data):
     # Ingest documents with similar content
     content = "This is a test document."
     for i in range(3):
-        files = {"file": (f"test{i}.txt", content, "text/plain")}
+        files = {"files": (f"test{i}.txt", content, "text/plain")}
         client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Retrieve multiple times with same query
@@ -197,7 +197,7 @@ def test_retrieve_result_structure(cleanup_test_data):
     """Test that results have correct structure."""
     # Ingest a document
     content = "Software development guidelines."
-    files = {"file": ("test.txt", content, "text/plain")}
+    files = {"files": ("test.txt", content, "text/plain")}
     client.post("/ingest", files=files, headers={"X-API-Key": "test-key-123"})
     
     # Retrieve

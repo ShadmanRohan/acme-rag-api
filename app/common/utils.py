@@ -6,6 +6,26 @@ from app.services.embeddings import get_embedding_service
 from app.services.store import get_store_service
 
 
+def _normalize_text(content: str) -> str:
+    """Remove newlines and normalize whitespace."""
+    return " ".join(content.split())
+
+
+def _truncate_at_word_boundary(text: str, max_length: int) -> str:
+    """Truncate text at word boundary if possible.
+    
+    Returns:
+        Truncated text at word boundary or at max_length.
+    """
+    truncated = text[:max_length]
+    last_space = truncated.rfind(" ")
+    
+    # Only use word boundary if it's not too short
+    if last_space > max_length * SNIPPET_WORD_BOUNDARY_THRESHOLD:
+        return truncated[:last_space].rstrip()
+    return truncated.rstrip()
+
+
 def format_snippet(content: str, max_length: int = None) -> str:
     """Format content as a snippet (≤max_length, word-safe, no newlines).
     
@@ -19,25 +39,23 @@ def format_snippet(content: str, max_length: int = None) -> str:
     if max_length is None:
         max_length = SNIPPET_MAX_LENGTH
     
-    # Remove newlines and normalize whitespace
-    text = " ".join(content.split())
+    text = _normalize_text(content)
     
     if len(text) <= max_length:
         return text
     
-    # Truncate at word boundary
-    truncated = text[:max_length]
-    # Find last space before max_length
-    last_space = truncated.rfind(" ")
-    if last_space > max_length * SNIPPET_WORD_BOUNDARY_THRESHOLD:  # Only use word boundary if it's not too short
-        snippet = truncated[:last_space]
-    else:
-        snippet = truncated
-    
-    # Ensure no trailing whitespace
-    snippet = snippet.rstrip()
-    
-    return snippet
+    return _truncate_at_word_boundary(text, max_length)
+
+
+def _format_single_result(result: dict, max_length: int) -> dict:
+    """Format a single search result with snippet."""
+    snippet = format_snippet(result["content"], max_length=max_length)
+    return {
+        "doc_id": result["doc_id"],
+        "snippet": snippet,
+        "score": result["score"],
+        "language": result["language"],
+    }
 
 
 def format_search_results(
@@ -55,16 +73,7 @@ def format_search_results(
     Returns:
         List of formatted results with doc_id, snippet, score, language (preserves original order).
     """
-    results = []
-    for result in search_results:
-        snippet = format_snippet(result["content"], max_length=max_length)
-        results.append({
-            "doc_id": result["doc_id"],
-            "snippet": snippet,
-            "score": result["score"],
-            "language": result["language"],
-        })
-    
+    results = [_format_single_result(result, max_length) for result in search_results]
     # Results are already sorted by store.search(), so we just format and limit
     return results[:k] if k else results
 

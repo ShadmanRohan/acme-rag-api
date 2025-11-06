@@ -73,7 +73,9 @@ class TranslationService:
             Translated answer.
         """
         source_language = get_language_service().detect(answer)
-        return answer if source_language == target_language else self.translate(answer, source_language, target_language)
+        if source_language == target_language:
+            return answer
+        return self.translate(answer, source_language, target_language)
 
 
 # Global instance
