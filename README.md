@@ -177,3 +177,14 @@ pytest -q
 # Lint code
 ruff .
 ```
+
+## Scalability & Modularity
+
+Routers stay thin: they rely on Pydantic models for validation, call the relevant service, and return plain dicts. All tunables live in `app/config.py`, sourced from environment variables with YAML fallbacks, so swapping models or prompts never touches the routers. Services hide the heavy lifting—`EmbeddingService` lazily loads the SentenceTransformer model, `StoreService` persists a FAISS `IndexFlatL2` along with metadata, and the language/LLM/translation services wrap OpenAI calls with consistent error handling. Because routers are stateless and the vector index is persisted under `app/data/`, multiple app instances can sit behind a load balancer while sharing the index via shared storage. The auth middleware enforces a server-scoped `ACME_API_KEY`, separate from `OPENAI_API_KEY`, and every error funnels through `create_error_response()` for a uniform JSON envelope.
+
+## Future Improvements
+
+- Promote the FAISS index to an ANN variant (IVFFlat or HNSW) or an external vector database when latency becomes critical; add sharding or replication around the store.
+- Layer pagination onto `/retrieve`, enforce per-client rate limits, and emit observability hooks (request IDs, latency metrics).
+- Introduce background workers for large ingest batches and a managed secrets story for per-tenant API keys.
+- Expand CI with load and stress suites and evolve CD to canary or blue/green deployments before pushing to Docker Hub.
